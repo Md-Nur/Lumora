@@ -5,3 +5,4 @@ official_data_iccv_final/
 *__pycache__/
 *.pt
 mimic_cxr_aug_train.csv
+*.env
