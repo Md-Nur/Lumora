@@ -1,2 +1,6 @@
 data/
 .venv/
+official_data_iccv_final/
+.gradio/
+*__pycache__/
+*.pt

@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+:root {
+  --font-sans: var(--font-jakarta);
+  --font-mono: var(--font-mono);
+  
+  /* Logo-Aligned Clinical Color Palette */
+  --brand-primary: #2563eb;       /* Royal Blue (logo text / lung base) */
+  --brand-secondary: #3b82f6;     /* Bright Care Blue (lung gradient) */
+  --brand-accent: #0ea5e9;        /* Soft Electric Cyan (neural network nodes) */
+  --brand-success: #10b981;       /* Safe Clinical Emerald */
+  --brand-warning: #f59e0b;       /* Soft Attention Amber */
+  --brand-danger: #ef4444;        /* Alert Crimson Red */
+  
+  --bg-clinical: #f8fafc;         /* Soft Off-White Hospital Slate */
+  --panel-card: #ffffff;          /* Clean White Card */
+  --panel-border: #e2e8f0;        /* Gentle Border Slate 200 */
+}
+
+@theme inline {
+  --font-sans: var(--font-jakarta);
+  --font-mono: var(--font-mono);
+}
+
+/* Custom Clinical UI Classes */
+body {
+  font-family: var(--font-jakarta), var(--font-sans), sans-serif;
+  background-color: var(--bg-clinical);
+  background-image: 
+    radial-gradient(circle at 100% 0%, rgba(30, 64, 175, 0.02) 0%, transparent 40%),
+    radial-gradient(circle at 0% 100%, rgba(15, 118, 110, 0.02) 0%, transparent 40%);
+  color: #0f172a;
+}
+
+.clinical-card {
+  background: var(--panel-card);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.04), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+  border-radius: 16px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.clinical-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.06), 0 4px 6px -4px rgba(15, 23, 42, 0.06);
+}
+
+.clinical-card-active {
+  border-color: #93c5fd;
+  box-shadow: 0 10px 20px -3px rgba(30, 64, 175, 0.05);
+}
+
+/* Soft Pulsing Upload Border */
+@keyframes soft-pulse-border {
+  0%, 100% {
+    border-color: #cbd5e1;
+    background-color: rgba(241, 245, 249, 0.3);
+  }
+  50% {
+    border-color: var(--brand-secondary);
+    background-color: rgba(224, 242, 254, 0.4);
+  }
+}
+
+.upload-active {
+  animation: soft-pulse-border 2s infinite ease-in-out;
+}
+
+/* Scanning bar - soft light mode medical scanner */
+@keyframes medical-scan {
+  0% { top: 0%; opacity: 0; }
+  10% { opacity: 0.8; }
+  90% { opacity: 0.8; }
+  100% { top: 100%; opacity: 0; }
+}
+
+.medical-scanner-line {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--brand-secondary), transparent);
+  box-shadow: 0 0 10px var(--brand-secondary);
+  position: absolute;
+  width: 100%;
+  left: 0;
+  animation: medical-scan 2.5s infinite linear;
+  pointer-events: none;
+}
+
+/* Clean Clinical Report Viewer (Paper look) */
+.clinical-report-sheet {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.02), 
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  font-family: inherit;
+  line-height: 1.6;
+}
+
+/* Soft blink cursor for typing */
+@keyframes soft-blink {
+  50% { opacity: 0; }
+}
+.clinical-cursor::after {
+  content: '│';
+  color: var(--brand-primary);
+  font-weight: 300;
+  animation: soft-blink 1s step-start infinite;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
