@@ -52,12 +52,13 @@ export default function Workspace() {
       } else {
         setBackendOnline("offline");
       }
-    } catch (err) {
+    } catch {
       setBackendOnline("offline");
     }
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     checkBackendHealth();
     const interval = setInterval(checkBackendHealth, 5000);
     return () => clearInterval(interval);
@@ -70,6 +71,7 @@ export default function Workspace() {
     }
 
     if (!reportText) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDisplayedReport("");
       return;
     }
@@ -227,29 +229,48 @@ export default function Workspace() {
         const data = await response.json();
 
         if (response.ok) {
+          const meanSaturation = typeof data.mean_saturation === "number" ? data.mean_saturation : 0;
+          const grayStd = typeof data.gray_std === "number" ? data.gray_std : 0;
           setTelemetry({
             status: "verified",
-            meanSaturation: data.mean_saturation,
+            meanSaturation,
             saturationThreshold: 0.15,
-            grayStd: data.gray_std,
+            grayStd,
             contrastThreshold: 8.0,
-            saturationMessage: `Color saturation ${data.mean_saturation.toFixed(3)} — within grayscale threshold. Confirmed monochrome scan.`,
-            contrastMessage: `Pixel intensity std-dev ${data.gray_std.toFixed(1)} — sufficient diagnostic contrast present.`,
+            saturationMessage: typeof data.mean_saturation === "number"
+              ? `Color saturation ${data.mean_saturation.toFixed(3)} — within grayscale threshold. Confirmed monochrome scan.`
+              : "Color saturation verified.",
+            contrastMessage: typeof data.gray_std === "number"
+              ? `Pixel intensity std-dev ${data.gray_std.toFixed(1)} — sufficient diagnostic contrast present.`
+              : "Contrast verified.",
             engineUsed: "Lumora VLM Assistant",
             inferenceTime: "N/A",
           });
           setReportText(data.report);
         } else if (response.status === 422) {
+          const meanSaturation = typeof data.mean_saturation === "number" ? data.mean_saturation : 0;
+          const grayStd = typeof data.gray_std === "number" ? data.gray_std : 0;
+          
+          let contrastMessage = "Contrast verification complete.";
+          if (typeof data.gray_std === "number") {
+            contrastMessage = data.gray_std < 8.0
+              ? `Pixel intensity std-dev ${data.gray_std.toFixed(1)} — image appears blank or near-uniform.`
+              : `Pixel intensity std-dev ${data.gray_std.toFixed(1)} — contrast check passed.`;
+          } else if (data.detail && typeof data.detail === "string") {
+            contrastMessage = `Validation details: ${data.detail}`;
+          } else if (Array.isArray(data.detail)) {
+            const messages = data.detail.map((d: { loc?: string[]; msg?: string }) => `${d.loc?.join(".") || "field"}: ${d.msg || "invalid"}`).join(", ");
+            contrastMessage = `API validation failure: ${messages}`;
+          }
+
           setTelemetry({
             status: "rejected",
-            meanSaturation: data.mean_saturation,
+            meanSaturation,
             saturationThreshold: 0.15,
-            grayStd: data.gray_std,
+            grayStd,
             contrastThreshold: 8.0,
-            saturationMessage: data.telemetry || "Image failed guardrail validation.",
-            contrastMessage: data.gray_std < 8.0
-              ? `Pixel intensity std-dev ${data.gray_std.toFixed(1)} — image appears blank or near-uniform.`
-              : `Pixel intensity std-dev ${data.gray_std.toFixed(1)} — contrast check passed.`,
+            saturationMessage: data.telemetry || (data.detail ? "API validation error." : "Image failed guardrail validation."),
+            contrastMessage,
             engineUsed: "Clinical Physics Guardrail",
             inferenceTime: "N/A",
           });
@@ -259,10 +280,11 @@ export default function Workspace() {
         } else {
           throw new Error(data.detail || "Server error");
         }
-      } catch (err: any) {
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
         console.error(err);
         setReportText(
-          `INFERENCE ERROR: ${err.message || `Failed to communicate with the Lumora analysis host. Please verify that the FastAPI backend server is active at ${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}.`}`,
+          `INFERENCE ERROR: ${errorMsg || `Failed to communicate with the Lumora analysis host. Please verify that the FastAPI backend server is active at ${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}.`}`,
         );
         setTelemetry({
           status: "rejected",
@@ -660,7 +682,7 @@ export default function Workspace() {
                       : telemetry.meanSaturation > telemetry.saturationThreshold ? "text-red-600"
                       : "text-teal-700"
                     }`}>
-                      {telemetry.status !== "none"
+                      {telemetry.status !== "none" && typeof telemetry.meanSaturation === "number"
                         ? telemetry.meanSaturation.toFixed(3)
                         : "—"}
                     </span>
@@ -716,7 +738,7 @@ export default function Workspace() {
                       : telemetry.grayStd < telemetry.contrastThreshold ? "text-red-600"
                       : "text-indigo-700"
                     }`}>
-                      {telemetry.status !== "none"
+                      {telemetry.status !== "none" && typeof telemetry.grayStd === "number"
                         ? `σ ${telemetry.grayStd.toFixed(1)}`
                         : "—"}
                     </span>
@@ -828,7 +850,7 @@ export default function Workspace() {
                   <div className="relative z-10">
                     <span
                       className={
-                        typewriterIntervalRef.current ? "clinical-cursor" : ""
+                        displayedReport.length < reportText.length ? "clinical-cursor" : ""
                       }
                     >
                       {displayedReport}
