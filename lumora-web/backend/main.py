@@ -130,13 +130,22 @@ ui_transform = transforms.Compose([
 # These two checks require zero extra models and correctly pass DICOM
 # exports, false-color enhanced scans, and low-contrast PA/lateral views.
 
-def is_valid_medical_image(raw_image: Image.Image):
+def is_valid_medical_image(raw_image: Image.Image) -> dict:
     """
     Physics-based guardrail: validates that an uploaded image is a
     medical-grade grayscale scan (chest X-ray) rather than a natural
     photograph or blank image.
 
-    Returns (is_valid: bool, reason: str)
+    Always computes and returns both numeric metrics so the frontend
+    can display honest, live values instead of hardcoded constants.
+
+    Returns a dict with keys:
+        is_valid      (bool)  — whether image passes all checks
+        reason        (str)   — human-readable explanation
+        mean_saturation (float) — mean per-pixel HSV saturation [0, 1]
+                                  threshold: < 0.15 to pass
+        gray_std        (float) — pixel intensity std-dev [0, 255]
+                                  threshold: > 8.0 to pass
     """
     # Work on a fixed-size RGB array for all checks
     img_rgb = np.array(raw_image.convert('RGB').resize((224, 224))).astype(np.float32)
@@ -162,12 +171,21 @@ def is_valid_medical_image(raw_image: Image.Image):
     )
     mean_saturation = float(np.mean(per_pixel_sat))
 
+    # Always compute contrast so we can return it even on early failure
+    gray_np = np.array(raw_image.convert('L').resize((224, 224))).astype(np.float32)
+    gray_std = float(np.std(gray_np))
+
     if mean_saturation > 0.15:
-        return False, (
-            f"Colorful natural image detected "
-            f"(mean saturation {mean_saturation:.3f} > 0.15). "
-            f"Please upload a grayscale chest X-ray."
-        )
+        return {
+            "is_valid": False,
+            "reason": (
+                f"Colorful natural image detected "
+                f"(mean saturation {mean_saturation:.3f} > 0.15). "
+                f"Please upload a grayscale chest X-ray."
+            ),
+            "mean_saturation": mean_saturation,
+            "gray_std": gray_std,
+        }
 
     # ----------------------------------------------------------------
     # CHECK 2: NON-TRIVIAL CONTRAST
@@ -175,17 +193,24 @@ def is_valid_medical_image(raw_image: Image.Image):
     # A blank, all-white, or all-black image has near-zero std deviation.
     # Threshold of 8.0 out of 255 is very permissive; only catches blanks.
     # ----------------------------------------------------------------
-    gray_np = np.array(raw_image.convert('L').resize((224, 224))).astype(np.float32)
-    gray_std = float(np.std(gray_np))
-
     if gray_std < 8.0:
-        return False, (
-            f"Image has insufficient contrast "
-            f"(pixel std {gray_std:.1f} < 8.0). "
-            f"The image appears blank or near-uniform."
-        )
+        return {
+            "is_valid": False,
+            "reason": (
+                f"Image has insufficient contrast "
+                f"(pixel std {gray_std:.1f} < 8.0). "
+                f"The image appears blank or near-uniform."
+            ),
+            "mean_saturation": mean_saturation,
+            "gray_std": gray_std,
+        }
 
-    return True, "Verified"
+    return {
+        "is_valid": True,
+        "reason": "Verified",
+        "mean_saturation": mean_saturation,
+        "gray_std": gray_std,
+    }
 
 
 # =====================================================================
@@ -195,6 +220,8 @@ class InferenceResponse(BaseModel):
     status: str
     report: str
     telemetry: str = "N/A"
+    mean_saturation: float = 0.0   # real computed value [0, 1]; threshold < 0.15
+    gray_std: float = 0.0           # real computed value [0, 255]; threshold > 8.0
 
 
 # =====================================================================
@@ -224,14 +251,16 @@ async def predict_medical_report(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Corrupted image stream data.")
 
     # 3. Run Guardrail Gateway
-    is_valid, telemetry_msg = is_valid_medical_image(input_image)
-    if not is_valid:
+    guardrail = is_valid_medical_image(input_image)
+    if not guardrail["is_valid"]:
         return JSONResponse(
             status_code=422,
             content={
                 "status": "rejected",
                 "report": "Verification Fault: Please upload a valid frontal/lateral diagnostic chest X-ray scan.",
-                "telemetry": telemetry_msg
+                "telemetry": guardrail["reason"],
+                "mean_saturation": guardrail["mean_saturation"],
+                "gray_std": guardrail["gray_std"],
             }
         )
 
@@ -285,7 +314,13 @@ async def predict_medical_report(file: UploadFile = File(...)):
             compiled_report = "Clear lung fields bilaterally. No focal consolidations detected."
 
         print("Generated Report:", compiled_report)
-        return InferenceResponse(status="success", report=compiled_report, telemetry="Verified Diagnostic Scan Space")
+        return InferenceResponse(
+            status="success",
+            report=compiled_report,
+            telemetry="Verified Diagnostic Scan Space",
+            mean_saturation=guardrail["mean_saturation"],
+            gray_std=guardrail["gray_std"],
+        )
 
     except Exception as error_context:
         raise HTTPException(status_code=500, detail=f"Runtime Inference Processing Fault: {str(error_context)}")

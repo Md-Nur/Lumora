@@ -5,12 +5,12 @@ import React, { useState, useEffect, useRef } from "react";
 // Types
 interface Telemetry {
   status: "verified" | "rejected" | "none";
-  margin: number; // 0.0 to 1.0 (X-ray layout match score)
-  marginThreshold: number; // 0.18
-  variance: number; // HSV saturation variance
-  varianceThreshold: number; // 1950.0
-  marginMessage?: string;
-  varianceMessage?: string;
+  meanSaturation: number;       // 0.0 – 1.0  (lower = more grayscale); threshold < 0.15
+  saturationThreshold: number;  // 0.15
+  grayStd: number;              // 0.0 – 255.0 (higher = more contrast); threshold > 8.0
+  contrastThreshold: number;    // 8.0
+  saturationMessage?: string;
+  contrastMessage?: string;
   engineUsed: string;
   inferenceTime: string;
 }
@@ -30,10 +30,10 @@ export default function Workspace() {
   const [displayedReport, setDisplayedReport] = useState<string>("");
   const [telemetry, setTelemetry] = useState<Telemetry>({
     status: "none",
-    margin: 0.0,
-    marginThreshold: 0.18,
-    variance: 0.0,
-    varianceThreshold: 1950.0,
+    meanSaturation: 0.0,
+    saturationThreshold: 0.15,
+    grayStd: 0.0,
+    contrastThreshold: 8.0,
     engineUsed: "N/A",
     inferenceTime: "N/A",
   });
@@ -129,10 +129,10 @@ export default function Workspace() {
       setDisplayedReport("");
       setTelemetry({
         status: "none",
-        margin: 0.0,
-        marginThreshold: 0.18,
-        variance: 0.0,
-        varianceThreshold: 1950.0,
+        meanSaturation: 0.0,
+        saturationThreshold: 0.15,
+        grayStd: 0.0,
+        contrastThreshold: 8.0,
         engineUsed: "N/A",
         inferenceTime: "N/A",
       });
@@ -166,17 +166,18 @@ export default function Workspace() {
         previewUrl?.includes("sample_portrait");
 
       if (isInvalidCase) {
+        // Simulated realistic values for an invalid color photograph
         setTelemetry({
           status: "rejected",
-          margin: 0.042,
-          marginThreshold: 0.18,
-          variance: 2240.5,
-          varianceThreshold: 1950.0,
-          marginMessage:
-            "Structural similarity rating is below 18% required threshold.",
-          varianceMessage:
-            "Image contains photographic color levels which are not gray-scale diagnostic compatible.",
-          engineUsed: "Clinical ResNet-18 Guardrail",
+          meanSaturation: 0.38,  // high saturation → colorful photo
+          saturationThreshold: 0.15,
+          grayStd: 74.2,
+          contrastThreshold: 8.0,
+          saturationMessage:
+            "High color saturation detected (0.38 > 0.15). Natural photograph, not a grayscale X-ray.",
+          contrastMessage:
+            "Contrast is present but image failed grayscale check first.",
+          engineUsed: "Clinical Physics Guardrail",
           inferenceTime: `${elapsedSeconds}s`,
         });
         setReportText(
@@ -187,15 +188,15 @@ export default function Workspace() {
           file?.name?.includes("pathology") ||
           previewUrl?.includes("sample_pathology");
 
+        // Simulated realistic values for a valid chest X-ray
         setTelemetry({
           status: "verified",
-          margin: 0.762,
-          marginThreshold: 0.18,
-          variance: 142.1,
-          varianceThreshold: 1950.0,
-          marginMessage:
-            "Excellent structural match with standard frontal diagnostic views.",
-          varianceMessage: "Grayscale profile fully verified.",
+          meanSaturation: 0.021,  // near-zero saturation → genuine grayscale
+          saturationThreshold: 0.15,
+          grayStd: isPathologicalCase ? 48.6 : 55.3,  // meaningful contrast
+          contrastThreshold: 8.0,
+          saturationMessage: "Near-zero color saturation (0.02). Confirmed monochrome radiograph.",
+          contrastMessage: `Pixel intensity std-dev ${isPathologicalCase ? "48.6" : "55.3"} — sufficient diagnostic contrast.`,
           engineUsed: "Lumora VLM Assistant",
           inferenceTime: `${elapsedSeconds}s`,
         });
@@ -228,28 +229,29 @@ export default function Workspace() {
         if (response.ok) {
           setTelemetry({
             status: "verified",
-            margin: 0.745,
-            marginThreshold: 0.18,
-            variance: 98.4,
-            varianceThreshold: 1950.0,
-            marginMessage: "Chest radiograph structure matched successfully.",
-            varianceMessage: "Grayscale monochrome profile verified.",
+            meanSaturation: data.mean_saturation,
+            saturationThreshold: 0.15,
+            grayStd: data.gray_std,
+            contrastThreshold: 8.0,
+            saturationMessage: `Color saturation ${data.mean_saturation.toFixed(3)} — within grayscale threshold. Confirmed monochrome scan.`,
+            contrastMessage: `Pixel intensity std-dev ${data.gray_std.toFixed(1)} — sufficient diagnostic contrast present.`,
             engineUsed: "Lumora VLM Assistant",
-            inferenceTime: "0.78s",
+            inferenceTime: "N/A",
           });
           setReportText(data.report);
         } else if (response.status === 422) {
           setTelemetry({
             status: "rejected",
-            margin: 0.052,
-            marginThreshold: 0.18,
-            variance: 2100.0,
-            varianceThreshold: 1950.0,
-            marginMessage:
-              data.telemetry || "Out-of-Domain radiograph structure.",
-            varianceMessage: "Color levels detected, expected monochrome scan.",
-            engineUsed: "Clinical ResNet-18 Guardrail",
-            inferenceTime: "0.18s",
+            meanSaturation: data.mean_saturation,
+            saturationThreshold: 0.15,
+            grayStd: data.gray_std,
+            contrastThreshold: 8.0,
+            saturationMessage: data.telemetry || "Image failed guardrail validation.",
+            contrastMessage: data.gray_std < 8.0
+              ? `Pixel intensity std-dev ${data.gray_std.toFixed(1)} — image appears blank or near-uniform.`
+              : `Pixel intensity std-dev ${data.gray_std.toFixed(1)} — contrast check passed.`,
+            engineUsed: "Clinical Physics Guardrail",
+            inferenceTime: "N/A",
           });
           setReportText(
             "VERIFICATION FAULT: Non-Medical Asset Detected.\n\nThe uploaded image has been analyzed by the system's structural validation layers and does not conform to standard chest radiography blueprints. Photographic chromatic complexity was also caught.\n\nACTION REQUIRED:\nPlease verify that the selected file is indeed a valid frontal (PA/AP) or lateral diagnostic chest radiograph scan and re-submit.",
@@ -264,12 +266,12 @@ export default function Workspace() {
         );
         setTelemetry({
           status: "rejected",
-          margin: 0.0,
-          marginThreshold: 0.18,
-          variance: 0.0,
-          varianceThreshold: 1950.0,
-          marginMessage: "Connection failed.",
-          varianceMessage: "N/A",
+          meanSaturation: 0.0,
+          saturationThreshold: 0.15,
+          grayStd: 0.0,
+          contrastThreshold: 8.0,
+          saturationMessage: "Connection failed — could not reach backend.",
+          contrastMessage: "N/A",
           engineUsed: "Network Host Monitor",
           inferenceTime: "N/A",
         });
@@ -288,10 +290,10 @@ export default function Workspace() {
     setDisplayedReport("");
     setTelemetry({
       status: "none",
-      margin: 0.0,
-      marginThreshold: 0.18,
-      variance: 0.0,
-      varianceThreshold: 1950.0,
+      meanSaturation: 0.0,
+      saturationThreshold: 0.15,
+      grayStd: 0.0,
+      contrastThreshold: 8.0,
       engineUsed: "N/A",
       inferenceTime: "N/A",
     });
@@ -641,105 +643,118 @@ export default function Workspace() {
               )}
             </h2>
 
-            {/* Friendly Telemetry Meters */}
+            {/* Real Telemetry Meters — values wired to actual backend computation */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-              {/* Meter 1: Anatomical Conformity (Structural Similarity) */}
+
+              {/* Meter 1: Color Saturation Check  (mean_saturation, threshold < 0.15) */}
+              {/* Lower bar = more grayscale = GOOD. Bar turns red when above threshold. */}
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-[11px] text-slate-500 font-bold tracking-tight uppercase flex items-center gap-1.5">
                       <span className="h-2 w-2 rounded-full bg-blue-500"></span>
-                      Anatomical Conformity
+                      Color Saturation
                     </span>
-                    <span className="text-xs font-bold text-slate-700">
+                    <span className={`text-xs font-bold ${
+                      telemetry.status === "none" ? "text-slate-400"
+                      : telemetry.meanSaturation > telemetry.saturationThreshold ? "text-red-600"
+                      : "text-teal-700"
+                    }`}>
                       {telemetry.status !== "none"
-                        ? `${(telemetry.margin * 100).toFixed(0)}%`
-                        : "0%"}
+                        ? telemetry.meanSaturation.toFixed(3)
+                        : "—"}
                     </span>
                   </div>
 
-                  {/* Clean Blue Progress Bar */}
+                  {/* Bar: width = meanSaturation mapped to 0–40% scale (threshold=0.15 at 37.5%) */}
                   <div className="h-2.5 w-full bg-slate-200 rounded-full overflow-hidden relative">
                     <div
                       className={`h-full transition-all duration-1000 ease-out rounded-full ${
-                        telemetry.status === "rejected"
-                          ? "bg-amber-500"
-                          : "bg-blue-600"
+                        telemetry.status === "none" ? "bg-slate-300"
+                        : telemetry.meanSaturation > telemetry.saturationThreshold ? "bg-red-500"
+                        : "bg-teal-600"
                       }`}
                       style={{
-                        width: `${Math.min(telemetry.margin * 100, 100)}%`,
+                        width: telemetry.status === "none"
+                          ? "0%"
+                          : `${Math.min((telemetry.meanSaturation / 0.40) * 100, 100)}%`,
                       }}
                     />
-                    {/* Soft Threshold Line Marker */}
+                    {/* Threshold marker at 0.15 / 0.40 = 37.5% */}
                     <div
-                      className="absolute top-0 bottom-0 w-0.5 bg-slate-400 z-10"
-                      style={{ left: "18%" }}
+                      className="absolute top-0 bottom-0 w-0.5 bg-slate-500 z-10"
+                      title="Rejection threshold: 0.15"
+                      style={{ left: "37.5%" }}
                     />
                   </div>
 
                   <div className="flex justify-between text-[8px] font-semibold text-slate-400 mt-1">
-                    <span>Non-conformant</span>
-                    <span>Min Threshold (18%)</span>
-                    <span>High Conformity</span>
+                    <span>Pure grayscale (0.0)</span>
+                    <span className="text-slate-500">Threshold (0.15)</span>
+                    <span>High color (0.40+)</span>
                   </div>
                 </div>
 
                 <p className="text-[11px] text-slate-500 mt-4 leading-normal bg-white p-2.5 rounded-lg border border-slate-100">
                   {telemetry.status !== "none"
-                    ? telemetry.marginMessage
-                    : "Processes anatomical placement and radiographic orientation structure."}
+                    ? telemetry.saturationMessage
+                    : "Measures mean per-pixel HSV saturation. X-rays must score below 0.15 (near-zero color)."}
                 </p>
               </div>
 
-              {/* Meter 2: Grayscale Format Verification */}
+              {/* Meter 2: Image Contrast Check  (gray_std, threshold > 8.0) */}
+              {/* Higher bar = more internal structure = GOOD. */}
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-[11px] text-slate-500 font-bold tracking-tight uppercase flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-teal-600"></span>
-                      Grayscale Verification
+                      <span className="h-2 w-2 rounded-full bg-indigo-500"></span>
+                      Image Contrast
                     </span>
-                    <span className="text-xs font-bold text-slate-700">
-                      {telemetry.status === "none"
-                        ? "N/A"
-                        : telemetry.status === "verified"
-                          ? "Verified"
-                          : "Color Flagged"}
+                    <span className={`text-xs font-bold ${
+                      telemetry.status === "none" ? "text-slate-400"
+                      : telemetry.grayStd < telemetry.contrastThreshold ? "text-red-600"
+                      : "text-indigo-700"
+                    }`}>
+                      {telemetry.status !== "none"
+                        ? `σ ${telemetry.grayStd.toFixed(1)}`
+                        : "—"}
                     </span>
                   </div>
 
-                  {/* Clean Teal/Amber Progress Bar */}
+                  {/* Bar: width = grayStd on a 0–100 scale. Threshold at 8.0 = 8% */}
                   <div className="h-2.5 w-full bg-slate-200 rounded-full overflow-hidden relative">
                     <div
                       className={`h-full transition-all duration-1000 ease-out rounded-full ${
-                        telemetry.status === "rejected" &&
-                        telemetry.variance > telemetry.varianceThreshold
-                          ? "bg-red-500"
-                          : telemetry.status === "verified"
-                            ? "bg-teal-600"
-                            : "bg-slate-300"
+                        telemetry.status === "none" ? "bg-slate-300"
+                        : telemetry.grayStd < telemetry.contrastThreshold ? "bg-red-500"
+                        : "bg-indigo-500"
                       }`}
                       style={{
-                        width:
-                          telemetry.status === "none"
-                            ? "0%"
-                            : telemetry.status === "verified"
-                              ? "100%"
-                              : "30%",
+                        width: telemetry.status === "none"
+                          ? "0%"
+                          : `${Math.min((telemetry.grayStd / 100) * 100, 100)}%`,
                       }}
+                    />
+                    {/* Threshold marker at 8/100 = 8% */}
+                    <div
+                      className="absolute top-0 bottom-0 w-0.5 bg-slate-500 z-10"
+                      title="Rejection threshold: std-dev < 8"
+                      style={{ left: "8%" }}
                     />
                   </div>
 
                   <div className="flex justify-between text-[8px] font-semibold text-slate-400 mt-1">
-                    <span>Monochrome scan expected</span>
-                    <span>Standard gray balance</span>
+                    <span>Blank / uniform (σ 0)</span>
+                    <span className="text-slate-500">Min (σ 8)</span>
+                    <span>Rich structure (σ 100+)</span>
                   </div>
                 </div>
 
                 <p className="text-[11px] text-slate-500 mt-4 leading-normal bg-white p-2.5 rounded-lg border border-slate-100">
                   {telemetry.status !== "none"
-                    ? telemetry.varianceMessage
-                    : "Intercepts photographic interference or color-rich camera artifacts."}
+                    ? telemetry.contrastMessage
+                    : "Measures pixel intensity std-dev. Valid scans must score above σ 8.0 — blank images are rejected."}
                 </p>
               </div>
             </div>
