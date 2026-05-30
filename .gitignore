@@ -4,4 +4,4 @@ official_data_iccv_final/
 .gradio/
 *__pycache__/
 *.pt
-mimic_cxr_aug_train.csv
+# mimic_cxr_aug_train.csv
