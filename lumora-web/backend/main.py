@@ -20,6 +20,22 @@ import uvicorn
 # (attention_mask extended for the visual prefix token, resize_token_embeddings
 # called to match training vocab).
 # =====================================================================
+
+app = FastAPI(
+    title="Lumora VLM Analytics Engine",
+    description="Production-grade backend inference API for automated chest X-ray narrative generation.",
+    version="1.0.0"
+)
+
+# Enable CORS for the local Next.js client
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 class MedicalReportGenerator(nn.Module):
     def __init__(self, vocab_size=50257, embed_dim=768):
         super(MedicalReportGenerator, self).__init__()
@@ -61,20 +77,6 @@ class MedicalReportGenerator(nn.Module):
 # =====================================================================
 # 1. INITIALIZATION & HARDWARE ACCELERATION
 # =====================================================================
-app = FastAPI(
-    title="Lumora VLM Analytics Engine",
-    description="Production-grade backend inference API for automated chest X-ray narrative generation.",
-    version="1.0.0"
-)
-
-# Enable CORS for the local Next.js client
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
