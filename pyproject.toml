@@ -9,6 +9,7 @@ dependencies = [
     "ipywidgets>=8",
     "jupyterlab>=3",
     "matplotlib>=3.10.9",
+    "nibabel>=5.4.2",
     "numpy>=2.4.6",
     "pandas>=3.0.3",
     "pillow>=12.2.0",
