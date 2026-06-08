@@ -13,9 +13,11 @@ from tqdm.auto import tqdm
 from transformers import AutoTokenizer, GPT2LMHeadModel
 
 
-DEFAULT_MODEL_PATH = Path("lumora-web/backend/mimic-vlm-model/mimic_vlm_phase2_fully_trained.pt")
-DEFAULT_VALID_CSV = Path("mimic_cxr_aug_validate.csv")
-DEFAULT_IMG_ROOT = Path("official_data_iccv_final")
+DEFAULT_XRAY_MODEL_PATH = Path("checkpoints/x_ray/mimic_vlm_phase2_fully_trained.pt")
+DEFAULT_XRAY_VALID_CSV = Path("mimic_cxr_aug_validate.csv")
+DEFAULT_XRAY_IMG_ROOT = Path("official_data_iccv_final")
+DEFAULT_CT_MODEL_PATH = Path("checkpoints/ct_rate/ct_rate_vlm_phase2_fully_trained.pt")
+DEFAULT_CT_DATA_DIR = Path("data/ct_rate")
 MAX_TEXT_LENGTH = 128
 
 
@@ -33,7 +35,25 @@ class MimicReportDataset(Dataset):
         self.img_root_dir = Path(img_root_dir)
         self.tokenizer = tokenizer
         self.max_length = max_length
+        self.skipped_missing_images = 0
         self.missing_images = 0
+        self.samples = []
+
+        for _, row in self.df.iterrows():
+            img_paths = ast.literal_eval(row["image"])
+            reports = ast.literal_eval(row["text"])
+            image_path = next((self.img_root_dir / path for path in img_paths if (self.img_root_dir / path).exists()), None)
+            if image_path is None:
+                self.skipped_missing_images += 1
+                continue
+            report_text = reports[0] if reports else "Findings: Normal study."
+            self.samples.append((image_path, report_text))
+
+        if not self.samples:
+            raise ValueError(
+                f"No X-ray images from {csv_file} were found under {self.img_root_dir}. "
+                "Pass the correct --xray-img-root or use a validation CSV that matches the local image files."
+            )
 
         self.transform = transforms.Compose(
             [
@@ -47,15 +67,10 @@ class MimicReportDataset(Dataset):
         )
 
     def __len__(self):
-        return len(self.df)
+        return len(self.samples)
 
     def __getitem__(self, idx):
-        row = self.df.iloc[idx]
-        img_paths = ast.literal_eval(row["image"])
-        reports = ast.literal_eval(row["text"])
-
-        img_path = self.img_root_dir / img_paths[0]
-        report_text = reports[0] if reports else "Findings: Normal study."
+        img_path, report_text = self.samples[idx]
 
         try:
             image = Image.open(img_path).convert("RGB")
@@ -113,11 +128,48 @@ class MedicalReportGenerator(nn.Module):
 
 def load_model(checkpoint_path, device):
     model = MedicalReportGenerator().to(device)
-    checkpoint = torch.load(checkpoint_path, map_location=device)
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     state_dict = checkpoint["model_state_dict"] if "model_state_dict" in checkpoint else checkpoint
     model.load_state_dict(state_dict, strict=True)
     model.eval()
     return model, checkpoint
+
+
+def build_xray_dataset(args, tokenizer):
+    return MimicReportDataset(
+        csv_file=args.xray_valid_csv,
+        img_root_dir=args.xray_img_root,
+        tokenizer=tokenizer,
+        max_length=args.max_text_length,
+    )
+
+
+def build_ct_dataset(args, tokenizer):
+    from ct_rate_train_local import CTRateReportDataset, build_entries
+
+    entries, csv_path = build_entries(args.ct_data_dir, "valid", args.ct_valid_csv)
+    if args.limit is not None:
+        entries = entries[: args.limit]
+
+    dataset = CTRateReportDataset(entries, tokenizer, args.max_text_length)
+    print(f"CT validation CSV: {Path(csv_path).resolve()}")
+    print(f"CT data dir: {args.ct_data_dir.resolve()}")
+    return dataset
+
+
+def resolve_defaults(args):
+    if args.xray_model_path is None:
+        args.xray_model_path = DEFAULT_XRAY_MODEL_PATH
+    if args.ct_model_path is None:
+        args.ct_model_path = DEFAULT_CT_MODEL_PATH
+    if args.xray_valid_csv is None:
+        args.xray_valid_csv = DEFAULT_XRAY_VALID_CSV
+    if args.xray_img_root is None:
+        args.xray_img_root = DEFAULT_XRAY_IMG_ROOT
+    if args.ct_data_dir is None:
+        args.ct_data_dir = DEFAULT_CT_DATA_DIR
+
+    return args
 
 
 def evaluate(model, loader, device):
@@ -178,36 +230,55 @@ def evaluate(model, loader, device):
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Evaluate the final Lumora VLM checkpoint on validation report-token accuracy."
+        description="Evaluate Lumora VLM checkpoints on X-ray, CT, or both report-token accuracy."
     )
-    parser.add_argument("--model-path", type=Path, default=DEFAULT_MODEL_PATH)
-    parser.add_argument("--valid-csv", type=Path, default=DEFAULT_VALID_CSV)
-    parser.add_argument("--img-root", type=Path, default=DEFAULT_IMG_ROOT)
+    parser.add_argument("--modality", choices=["xray", "ct", "both"], default="both")
+    parser.add_argument("--xray-model-path", type=Path, default=None)
+    parser.add_argument("--ct-model-path", type=Path, default=None)
+    parser.add_argument("--xray-valid-csv", type=Path, default=None)
+    parser.add_argument("--ct-valid-csv", type=Path, default=None)
+    parser.add_argument("--xray-img-root", type=Path, default=None, help="Image root for X-ray evaluation.")
+    parser.add_argument("--ct-data-dir", type=Path, default=None, help="CT-RATE data directory for CT evaluation.")
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--max-text-length", type=int, default=MAX_TEXT_LENGTH)
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--limit", type=int, default=None, help="Evaluate only the first N rows.")
-    return parser.parse_args()
+    return resolve_defaults(parser.parse_args())
 
 
-def main():
-    args = parse_args()
-    device = get_device()
-    print(f"Device: {device}")
-    print(f"Model: {args.model_path.resolve()}")
-    print(f"Validation CSV: {args.valid_csv.resolve()}")
-    print(f"Image root: {args.img_root.resolve()}")
+def print_metrics(title, metrics):
+    print(f"\n{title}")
+    print("-" * len(title))
+    print(f"Validation loss/token : {metrics['validation_loss']:.4f}")
+    print(f"Perplexity            : {metrics['perplexity']:.4f}")
+    print(f"Token accuracy        : {metrics['token_accuracy'] * 100:.2f}%")
+    print(f"Exact report accuracy : {metrics['exact_sequence_accuracy'] * 100:.2f}%")
+    print(f"Correct tokens        : {metrics['correct_tokens']:,}/{metrics['total_tokens']:,}")
+    print(f"Exact reports         : {metrics['exact_sequences']:,}/{metrics['total_sequences']:,}")
 
-    tokenizer = AutoTokenizer.from_pretrained("gpt2")
-    tokenizer.pad_token = tokenizer.eos_token
 
-    dataset = MimicReportDataset(
-        csv_file=args.valid_csv,
-        img_root_dir=args.img_root,
-        tokenizer=tokenizer,
-        max_length=args.max_text_length,
-    )
-    if args.limit is not None:
+def evaluate_modality(modality, args, tokenizer, device):
+    print("\n" + "=" * 64)
+    print(f"Evaluating {modality.upper()} model")
+    print("=" * 64)
+
+    if modality == "ct":
+        model_path = args.ct_model_path
+        print(f"Model: {model_path.resolve()}")
+        dataset = build_ct_dataset(args, tokenizer)
+    else:
+        model_path = args.xray_model_path
+        print(f"Model: {model_path.resolve()}")
+        print(f"Validation CSV: {args.xray_valid_csv.resolve()}")
+        print(f"Image root: {args.xray_img_root.resolve()}")
+        dataset = build_xray_dataset(args, tokenizer)
+        if dataset.skipped_missing_images:
+            print(
+                f"Using {len(dataset):,} X-ray rows with local images; "
+                f"skipped {dataset.skipped_missing_images:,} rows with missing files."
+            )
+
+    if modality == "xray" and args.limit is not None:
         dataset = Subset(dataset, range(min(args.limit, len(dataset))))
 
     loader = DataLoader(
@@ -218,26 +289,58 @@ def main():
         pin_memory=device.type == "cuda",
     )
 
-    model, checkpoint = load_model(args.model_path, device)
+    model, checkpoint = load_model(model_path, device)
     if isinstance(checkpoint, dict):
         saved_val_loss = checkpoint.get("final_val_loss", checkpoint.get("val_loss"))
         if saved_val_loss is not None:
             print(f"Saved checkpoint validation loss: {saved_val_loss}")
 
     metrics = evaluate(model, loader, device)
-
-    print("\nFinal model validation metrics")
-    print("-" * 36)
-    print(f"Validation loss/token : {metrics['validation_loss']:.4f}")
-    print(f"Perplexity            : {metrics['perplexity']:.4f}")
-    print(f"Token accuracy        : {metrics['token_accuracy'] * 100:.2f}%")
-    print(f"Exact report accuracy : {metrics['exact_sequence_accuracy'] * 100:.2f}%")
-    print(f"Correct tokens        : {metrics['correct_tokens']:,}/{metrics['total_tokens']:,}")
-    print(f"Exact reports         : {metrics['exact_sequences']:,}/{metrics['total_sequences']:,}")
+    print_metrics(f"{modality.upper()} validation metrics", metrics)
 
     backing_dataset = dataset.dataset if isinstance(dataset, Subset) else dataset
     if getattr(backing_dataset, "missing_images", 0):
         print(f"Warning: {backing_dataset.missing_images} images could not be loaded and used zero tensors.")
+
+    del model
+    if device.type == "cuda":
+        torch.cuda.empty_cache()
+    return metrics
+
+
+def print_comparison(results):
+    if len(results) < 2:
+        return
+
+    print("\n" + "=" * 64)
+    print("Accuracy summary")
+    print("=" * 64)
+    print(f"{'Model':<8} {'Token Acc':>10} {'Loss/Token':>12} {'Perplexity':>12} {'Exact Acc':>10}")
+    for modality, metrics in results.items():
+        print(
+            f"{modality.upper():<8} "
+            f"{metrics['token_accuracy'] * 100:>9.2f}% "
+            f"{metrics['validation_loss']:>12.4f} "
+            f"{metrics['perplexity']:>12.4f} "
+            f"{metrics['exact_sequence_accuracy'] * 100:>9.2f}%"
+        )
+
+
+def main():
+    args = parse_args()
+    device = get_device()
+    print(f"Device: {device}")
+    print(f"Mode: {args.modality}")
+
+    tokenizer = AutoTokenizer.from_pretrained("gpt2")
+    tokenizer.pad_token = tokenizer.eos_token
+
+    modalities = ["xray", "ct"] if args.modality == "both" else [args.modality]
+    results = {}
+    for modality in modalities:
+        results[modality] = evaluate_modality(modality, args, tokenizer, device)
+
+    print_comparison(results)
 
 
 if __name__ == "__main__":
