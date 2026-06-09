@@ -3,7 +3,7 @@ import os
 import shutil
 from pathlib import Path
 
-from ct_rate_train_local import (
+from ct_rate_utils import (
     DEFAULT_DATA_DIR,
     REPORT_CSV_FILES,
     build_entries,

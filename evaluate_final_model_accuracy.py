@@ -145,7 +145,7 @@ def build_xray_dataset(args, tokenizer):
 
 
 def build_ct_dataset(args, tokenizer):
-    from ct_rate_train_local import CTRateReportDataset, build_entries
+    from ct_rate_utils import CTRateReportDataset, build_entries
 
     entries, csv_path = build_entries(args.ct_data_dir, "valid", args.ct_valid_csv)
     if args.limit is not None:
