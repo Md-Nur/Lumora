@@ -3,6 +3,6 @@ data/
 official_data_iccv_final/
 .gradio/
 *__pycache__/
-*.pt
+.pt
 mimic_cxr_aug_train.csv
 *.env
