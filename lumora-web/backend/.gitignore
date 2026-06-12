@@ -1,1 +1,20 @@
-.git
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Local configuration / secrets
+.env
+.env.*
+
+# Python compilation cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Large model assets/weights (downloaded dynamically from HF Hub or kept locally)
+mimic-vlm-model/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
