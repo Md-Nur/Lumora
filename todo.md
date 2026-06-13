@@ -1,4 +1,4 @@
-- create and run a script to convert all the 3d data to 2d and save in the data folder. This will be used for training the model in the next phase.
+- read other papers and compare our model architecture with them. try to find out the best architecture for our model and implement it.
 
 - After download the data train and export the model and upload in the huggingface model hub. This will be used for inference in the next phase.
 
@@ -9,3 +9,5 @@
 - ready the csv file for report genaralization model training. upload the model and sync with the backend. this will be used for generating the report in the next phase.
 
 - change the frontend to sync with the new backend. change the desing simple and mobile responsive.
+
+- upload the 2d image dataset with csv file in huggingface dataset hub & kaggle dataset hub. this will be used for training the model in the next phase and also for other researchers to use it for their research.
