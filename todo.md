@@ -11,3 +11,5 @@
 - ready the csv file for report genaralization model training. upload the model and sync with the backend. this will be used for generating the report in the next phase.
 
 - change the frontend to sync with the new backend. change the desing simple and mobile responsive.
+
+- upload the 2d image dataset with csv file in huggingface dataset hub & kaggle dataset hub. this will be used for training the model in the next phase and also for other researchers to use it for their research.
