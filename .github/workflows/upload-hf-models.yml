@@ -1,0 +1,61 @@
+name: Upload Hugging Face Models
+
+on:
+  workflow_dispatch:
+    inputs:
+      modality:
+        description: Which model checkpoint to upload
+        required: true
+        default: ct
+        type: choice
+        options:
+          - xray
+          - ct
+          - both
+      xray_model_path:
+        description: Local path in the checked-out repository for the X-ray checkpoint
+        required: true
+        default: checkpoints/x_ray/mimic_vlm_phase2_fully_trained.pt
+      ct_model_path:
+        description: Local path in the checked-out repository for the CT checkpoint
+        required: true
+        default: checkpoints/ct_rate/ct_rate_vlm_phase2_fully_trained.pt
+      xray_repo_id:
+        description: Hugging Face model repo for the X-ray checkpoint
+        required: true
+        default: nur9211/mimic-vlm-model
+      ct_repo_id:
+        description: Hugging Face model repo for the CT checkpoint
+        required: true
+        default: nur9211/ct-rate-vlm-model
+
+jobs:
+  upload:
+    name: Upload selected checkpoint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Hugging Face CLI
+        run: python -m pip install --upgrade huggingface_hub
+
+      - name: Upload X-ray model
+        if: ${{ inputs.modality == 'xray' || inputs.modality == 'both' }}
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          MODEL_PATH: ${{ inputs.xray_model_path }}
+          REPO_ID: ${{ inputs.xray_repo_id }}
+        run: |
+          test -f "$MODEL_PATH"
+          hf upload "$REPO_ID" "$MODEL_PATH" "$(basename "$MODEL_PATH")" --repo-type model --token "$HF_TOKEN" --commit-message "Upload X-ray checkpoint from CI"
+
+      - name: Upload CT model
+        if: ${{ inputs.modality == 'ct' || inputs.modality == 'both' }}
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          MODEL_PATH: ${{ inputs.ct_model_path }}
+          REPO_ID: ${{ inputs.ct_repo_id }}
+        run: |
+          test -f "$MODEL_PATH"
+          hf upload "$REPO_ID" "$MODEL_PATH" "$(basename "$MODEL_PATH")" --repo-type model --token "$HF_TOKEN" --commit-message "Upload CT checkpoint from CI"

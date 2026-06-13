@@ -6,3 +6,4 @@ official_data_iccv_final/
 *.pt
 mimic_cxr_aug_train.csv
 *.env
+*.git

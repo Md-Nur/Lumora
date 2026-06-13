@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import nibabel as nib
@@ -51,8 +52,45 @@ def get_device():
     return torch.device("cpu")
 
 
-def hub_token(token):
-    return token if token else True
+def _load_dotenv():
+    """Load .env file if python-dotenv is installed (best-effort)."""
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
+
+
+_load_dotenv()
+
+
+def hub_token(token=None):
+    """Return a resolved HF token, or True to use the cached login.
+
+    Priority:
+      1. Explicit token argument
+      2. Standard env vars: HF_TOKEN, HUGGINGFACE_TOKEN
+      3. System cached token set by `huggingface-cli login`
+      4. Custom .env key: hf_ct_scan_token (fallback)
+    """
+    if token:
+        return token
+    # 2. Standard env vars
+    for key in ("HF_TOKEN", "HUGGINGFACE_TOKEN"):
+        value = os.environ.get(key)
+        if value:
+            return value
+    # 3. System-level token stored by `huggingface-cli login`
+    cached = Path.home() / ".cache" / "huggingface" / "token"
+    if cached.exists():
+        tok = cached.read_text().strip()
+        if tok:
+            return tok
+    # 4. Custom .env key (fallback — may lack download permissions)
+    value = os.environ.get("hf_ct_scan_token")
+    if value:
+        return value
+    return True
 
 
 def require_hf_access(exc):
@@ -272,28 +310,34 @@ def report_text(row):
 def volume_path_from_name(data_dir, split, volume_name):
     data_dir = Path(data_dir)
     volume_name = str(volume_name).strip()
-    if not volume_name.endswith(".nii.gz"):
-        volume_name = f"{volume_name}.nii.gz"
+    
+    # Resolve the original NIfTI filename even if VolumeName is updated to .png
+    if volume_name.endswith(".png"):
+        nii_name = volume_name.removesuffix(".png") + ".nii.gz"
+    elif not volume_name.endswith(".nii.gz"):
+        nii_name = f"{volume_name}.nii.gz"
+    else:
+        nii_name = volume_name
 
-    if "/" in volume_name:
-        direct = data_dir / volume_name
+    if "/" in nii_name:
+        direct = data_dir / nii_name
         if direct.exists():
             return direct
 
-    stem = volume_name.removesuffix(".nii.gz")
+    stem = nii_name.removesuffix(".nii.gz")
     parts = stem.split("_")
     split_folder = "train_fixed" if split == "train" else "valid_fixed"
 
     candidates = [
-        data_dir / "dataset" / split_folder / volume_name,
+        data_dir / "dataset" / split_folder / nii_name,
     ]
     if len(parts) >= 3:
         level1 = "_".join(parts[:2])
         level2 = "_".join(parts[:3])
-        candidates.append(data_dir / "dataset" / split_folder / level1 / level2 / volume_name)
+        candidates.append(data_dir / "dataset" / split_folder / level1 / level2 / nii_name)
     if len(parts) >= 2:
         level1 = "_".join(parts[:2])
-        candidates.append(data_dir / "dataset" / split_folder / level1 / volume_name)
+        candidates.append(data_dir / "dataset" / split_folder / level1 / nii_name)
 
     for candidate in candidates:
         if candidate.exists():
@@ -310,16 +354,31 @@ def build_entries(data_dir, split, csv_path=None):
         df["__split"] = split
 
     volume_column = find_volume_column(df)
+    has_image_path = "image_path" in df.columns
+
     entries = []
     for _, row in df.iterrows():
         volume_name = str(row[volume_column]).strip()
         if not volume_name or volume_name.lower() == "nan":
             continue
+
+        # Resolve pre-converted PNG path from CSV if available
+        image_path = ""
+        if has_image_path:
+            raw = str(row.get("image_path", "")).strip()
+            if raw and raw.lower() != "nan":
+                image_path = raw
+
+        # Auto-resolve image_path if volume_name is renamed to .png
+        if volume_name.endswith(".png") and not image_path:
+            image_path = str(data_dir / "images" / split / volume_name)
+
         entries.append(
             {
                 "split": split,
                 "volume_name": volume_name,
                 "volume_path": volume_path_from_name(data_dir, split, volume_name),
+                "image_path": image_path,
                 "text": report_text(row),
             }
         )
@@ -365,11 +424,16 @@ class CTRateReportDataset(Dataset):
     def __init__(self, entries, tokenizer, max_length=MAX_TEXT_LENGTH):
         self.tokenizer = tokenizer
         self.max_length = max_length
-        self.entries = [entry for entry in entries if Path(entry["volume_path"]).exists()]
+        # Accept entries that have a local PNG image_path OR a local volume_path
+        self.entries = [
+            entry for entry in entries
+            if (entry.get("image_path") and Path(entry["image_path"]).exists())
+            or Path(entry["volume_path"]).exists()
+        ]
         if not self.entries:
             raise ValueError(
-                "No local CT-RATE volumes matched the report CSV. "
-                "Run the notebook download cell after accepting the gated dataset terms."
+                "No local CT-RATE volumes or images matched the report CSV. "
+                "Run convert_and_clean.py or the notebook download cell first."
             )
 
         self.transform = transforms.Compose(
@@ -390,7 +454,13 @@ class CTRateReportDataset(Dataset):
         entry = self.entries[idx]
 
         try:
-            image = nifti_to_rgb_image(entry["volume_path"])
+            img_path = entry.get("image_path", "")
+            if img_path and Path(img_path).exists():
+                # Fast path: load pre-converted 2D PNG
+                image = Image.open(img_path).convert("RGB")
+            else:
+                # Slow path: project 3D NIfTI to 2D on the fly
+                image = nifti_to_rgb_image(entry["volume_path"])
             image = self.transform(image)
         except Exception:
             image = torch.zeros(3, 224, 224)

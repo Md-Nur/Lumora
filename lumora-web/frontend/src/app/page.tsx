@@ -15,9 +15,12 @@ interface Telemetry {
   inferenceTime: string;
 }
 
+type Modality = "xray" | "ct";
+
 export default function Workspace() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [modality, setModality] = useState<Modality>("xray");
   const [isDragActive, setIsDragActive] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [backendOnline, setBackendOnline] = useState<
@@ -40,6 +43,17 @@ export default function Workspace() {
 
   const typewriterIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isNiftiFile = (name: string) => {
+    const lowerName = name.toLowerCase();
+    return lowerName.endsWith(".nii") || lowerName.endsWith(".nii.gz");
+  };
+
+  const getFileExtension = (name: string) => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.endsWith(".nii.gz")) return "nii.gz";
+    return lowerName.split(".").pop() || "";
+  };
 
   // Ping FastAPI health check
   const checkBackendHealth = async () => {
@@ -122,10 +136,14 @@ export default function Workspace() {
   };
 
   const handleFileSelection = (selectedFile: File) => {
-    const ext = selectedFile.name.split(".").pop()?.toLowerCase();
-    if (ext && ["jpg", "jpeg", "png"].includes(ext)) {
+    const ext = getFileExtension(selectedFile.name);
+    const selectedModality: Modality =
+      isNiftiFile(selectedFile.name) || ext === "dcm" ? "ct" : "xray";
+
+    if (["jpg", "jpeg", "png", "nii", "nii.gz", "dcm"].includes(ext)) {
       setFile(selectedFile);
-      setPreviewUrl(URL.createObjectURL(selectedFile));
+      setModality(selectedModality);
+      setPreviewUrl(selectedModality === "xray" ? URL.createObjectURL(selectedFile) : null);
       setIsPreset(false); // Reset preset flag on manual upload
       setReportText("");
       setDisplayedReport("");
@@ -140,14 +158,14 @@ export default function Workspace() {
       });
     } else {
       alert(
-        "Unsupported medical format. Please provide a standard JPEG or PNG image.",
+        "Unsupported medical format. Please provide JPEG/PNG for X-ray or .nii/.nii.gz/.dcm for CT.",
       );
     }
   };
 
   // Run Prediction
   const runPredictivePipeline = async () => {
-    if (!file && !previewUrl) return;
+    if (!file) return;
 
     setIsProcessing(true);
     setReportText("");
@@ -156,8 +174,8 @@ export default function Workspace() {
     // Aesthetic diagnostic prep delay
     await new Promise((resolve) => setTimeout(resolve, 800));
 
-    // If it is a diagnostic preset OR backend server is offline, trigger high-fidelity simulation
-    if (isPreset || backendOnline === "offline" || !file) {
+    // If it is an X-ray diagnostic preset OR backend server is offline, trigger high-fidelity simulation
+    if (modality === "xray" && (isPreset || backendOnline === "offline")) {
       const startTime = performance.now();
       await new Promise((resolve) => setTimeout(resolve, 1200));
       const endTime = performance.now();
@@ -216,10 +234,11 @@ export default function Workspace() {
     } else {
       const formData = new FormData();
       formData.append("file", file);
+      const endpoint = modality === "ct" ? "/predict/ct" : "/predict";
 
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/predict`,
+          `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}${endpoint}`,
           {
             method: "POST",
             body: formData,
@@ -236,14 +255,18 @@ export default function Workspace() {
             meanSaturation,
             saturationThreshold: 0.15,
             grayStd,
-            contrastThreshold: 8.0,
-            saturationMessage: typeof data.mean_saturation === "number"
+            contrastThreshold: modality === "ct" ? 1.0 : 8.0,
+            saturationMessage: modality === "ct"
+              ? data.telemetry || "CT projection generated from uploaded volumetric file."
+              : typeof data.mean_saturation === "number"
               ? `Color saturation ${data.mean_saturation.toFixed(3)} — within grayscale threshold. Confirmed monochrome scan.`
               : "Color saturation verified.",
             contrastMessage: typeof data.gray_std === "number"
-              ? `Pixel intensity std-dev ${data.gray_std.toFixed(1)} — sufficient diagnostic contrast present.`
+              ? modality === "ct"
+                ? `Projection intensity std-dev ${data.gray_std.toFixed(1)} — CT file decoded with measurable structure.`
+                : `Pixel intensity std-dev ${data.gray_std.toFixed(1)} — sufficient diagnostic contrast present.`
               : "Contrast verified.",
-            engineUsed: "Lumora VLM Assistant",
+            engineUsed: modality === "ct" ? "Lumora CT-RATE VLM Assistant" : "Lumora VLM Assistant",
             inferenceTime: "N/A",
           });
           setReportText(data.report);
@@ -268,14 +291,15 @@ export default function Workspace() {
             meanSaturation,
             saturationThreshold: 0.15,
             grayStd,
-            contrastThreshold: 8.0,
+            contrastThreshold: modality === "ct" ? 1.0 : 8.0,
             saturationMessage: data.telemetry || (data.detail ? "API validation error." : "Image failed guardrail validation."),
             contrastMessage,
-            engineUsed: "Clinical Physics Guardrail",
+            engineUsed: modality === "ct" ? "CT Input Validator" : "Clinical Physics Guardrail",
             inferenceTime: "N/A",
           });
-          setReportText(
-            "VERIFICATION FAULT: Non-Medical Asset Detected.\n\nThe uploaded image has been analyzed by the system's structural validation layers and does not conform to standard chest radiography blueprints. Photographic chromatic complexity was also caught.\n\nACTION REQUIRED:\nPlease verify that the selected file is indeed a valid frontal (PA/AP) or lateral diagnostic chest radiograph scan and re-submit.",
+          setReportText(modality === "ct"
+            ? `CT VERIFICATION FAULT\n\n${data.report || data.detail || "The uploaded CT file could not be decoded into a valid model input."}\n\nACTION REQUIRED:\nPlease upload a valid .nii, .nii.gz, or .dcm CT file and re-submit.`
+            : "VERIFICATION FAULT: Non-Medical Asset Detected.\n\nThe uploaded image has been analyzed by the system's structural validation layers and does not conform to standard chest radiography blueprints. Photographic chromatic complexity was also caught.\n\nACTION REQUIRED:\nPlease verify that the selected file is indeed a valid frontal (PA/AP) or lateral diagnostic chest radiograph scan and re-submit.",
           );
         } else {
           throw new Error(data.detail || "Server error");
@@ -307,6 +331,7 @@ export default function Workspace() {
   const handleReset = () => {
     setFile(null);
     setPreviewUrl(null);
+    setModality("xray");
     setIsPreset(false);
     setReportText("");
     setDisplayedReport("");
@@ -324,6 +349,7 @@ export default function Workspace() {
   // Preset cases
   const loadPresetCase = (type: "normal" | "pathology" | "invalid") => {
     handleReset();
+    setModality("xray");
     let simulatedUrl = "";
     let simulatedName = "";
 
@@ -410,10 +436,9 @@ export default function Workspace() {
               Automated Radiograph Analysis
             </h2>
             <p className="text-xs text-slate-600 leading-relaxed">
-              This clinician support tool processes uploaded chest x-rays to
-              draft clinical findings. High-fidelity semantic guardrails verify
-              image orientation and grayscale validity to protect diagnostic
-              integrity.
+              This clinician support tool processes uploaded chest X-rays and
+              CT studies to draft clinical findings. High-fidelity semantic
+              guardrails verify scan integrity before model inference.
             </p>
           </div>
 
@@ -479,14 +504,43 @@ export default function Workspace() {
               Patient Scan Selection
             </h2>
 
+            <div className="grid grid-cols-2 gap-2 mb-4 rounded-xl bg-slate-100 p-1 border border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!file) setModality("xray");
+                }}
+                className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                  modality === "xray"
+                    ? "bg-white text-blue-700 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800"
+                } ${file ? "cursor-default" : "cursor-pointer"}`}
+              >
+                X-Ray JPEG/PNG
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!file) setModality("ct");
+                }}
+                className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                  modality === "ct"
+                    ? "bg-white text-blue-700 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800"
+                } ${file ? "cursor-default" : "cursor-pointer"}`}
+              >
+                CT NIfTI/DICOM
+              </button>
+            </div>
+
             {/* File Drag-and-Drop Uploader */}
             <div
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              onClick={() => !previewUrl && fileInputRef.current?.click()}
+              onClick={() => !file && fileInputRef.current?.click()}
               className={`relative overflow-hidden rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-8 transition-all ${
-                previewUrl
+                file
                   ? "border-slate-200 bg-slate-50/50"
                   : "border-slate-300 bg-slate-50/30 hover:bg-slate-50 hover:border-blue-400 cursor-pointer"
               } ${isDragActive ? "upload-active border-blue-400" : ""}`}
@@ -495,7 +549,7 @@ export default function Workspace() {
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                accept="image/png, image/jpeg, image/jpg"
+                accept="image/png, image/jpeg, image/jpg,.nii,.nii.gz,.dcm,application/dicom"
                 className="hidden"
               />
 
@@ -540,6 +594,64 @@ export default function Workspace() {
                     {file ? file.name.substring(0, 18) : "SIMULATED_SCAN"}
                   </div>
                 </div>
+              ) : file ? (
+                <div className="relative w-full max-w-[320px] rounded-xl bg-white border border-slate-200 shadow-xs p-5 text-center">
+                  {isProcessing && <div className="medical-scanner-line" />}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleReset();
+                    }}
+                    className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-white border border-slate-200 text-slate-500 hover:text-red-600 shadow-sm transition-all z-20 cursor-pointer"
+                    title="Remove scan"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+
+                  <div className="mx-auto h-14 w-14 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center mb-4">
+                    <svg
+                      className="w-7 h-7"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={1.8}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5A3.375 3.375 0 0010.125 2.25H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                      />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-bold text-slate-800 break-all">
+                    {file.name}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-2">
+                    {modality === "ct"
+                      ? "CT scan file ready for CT-RATE model inference"
+                      : "Medical image ready for X-ray model inference"}
+                  </p>
+                  <div className="mt-4 flex justify-center gap-2 text-[10px] font-semibold">
+                    <span className="px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-100">
+                      {modality === "ct" ? "CT" : "X-Ray"}
+                    </span>
+                    <span className="px-2 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                      {getFileExtension(file.name).toUpperCase()}
+                    </span>
+                  </div>
+                </div>
               ) : (
                 // Standard Empty Upload State
                 <div className="flex flex-col items-center justify-center text-center">
@@ -559,10 +671,14 @@ export default function Workspace() {
                     </svg>
                   </div>
                   <p className="text-sm font-semibold text-slate-700">
-                    Drag & Drop Chest X-Ray Scan
+                    {modality === "ct"
+                      ? "Drag & Drop CT Scan File"
+                      : "Drag & Drop Chest X-Ray Scan"}
                   </p>
                   <p className="text-xs text-slate-400 mt-1 max-w-[200px]">
-                    Supports standard grayscale PACS exported PNG or JPEG format
+                    {modality === "ct"
+                      ? "Supports NIfTI volumes and DICOM CT slices"
+                      : "Supports standard grayscale PACS exported PNG or JPEG format"}
                   </p>
                   <button className="mt-4 px-4 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-slate-50 hover:text-slate-900 transition-all text-xs font-semibold shadow-xs cursor-pointer">
                     Browse Files
@@ -585,9 +701,9 @@ export default function Workspace() {
 
               <button
                 onClick={runPredictivePipeline}
-                disabled={!previewUrl || isProcessing}
+                disabled={!file || isProcessing}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-xs transition-all shadow-xs ${
-                  !previewUrl
+                  !file
                     ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
                     : isProcessing
                       ? "bg-blue-100 text-blue-600 border border-blue-200 cursor-wait animate-pulse"
@@ -615,7 +731,7 @@ export default function Workspace() {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       />
                     </svg>
-                    Analyzing radiograph...
+                    {modality === "ct" ? "Analyzing CT study..." : "Analyzing radiograph..."}
                   </>
                 ) : (
                   <>
@@ -632,7 +748,7 @@ export default function Workspace() {
                         d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                       />
                     </svg>
-                    Compile Clinical Report
+                    {modality === "ct" ? "Run CT Model" : "Compile Clinical Report"}
                   </>
                 )}
               </button>
@@ -830,10 +946,10 @@ export default function Workspace() {
                 // Processing Indicators
                 <div className="text-slate-400 flex flex-col gap-2 animate-pulse mt-4">
                   <p className="font-semibold text-slate-500">
-                    &gt; Decompressing visual features...
+                    &gt; {modality === "ct" ? "Projecting CT volume planes..." : "Decompressing visual features..."}
                   </p>
                   <p>&gt; Validating spatial orientation coordinates...</p>
-                  <p>&gt; Matching ResNet-18 contrast anchors...</p>
+                  <p>&gt; {modality === "ct" ? "Loading CT-RATE checkpoint..." : "Matching contrast anchors..."}</p>
                   <p>&gt; Generating clinical vocabulary token sets...</p>
                 </div>
               ) : displayedReport ? (
@@ -889,7 +1005,7 @@ export default function Workspace() {
                     Report Ingestion Workspace Ready
                   </p>
                   <p className="text-[11px] text-slate-400 mt-1 max-w-xs leading-normal">
-                    Select a chest radiograph and compile features to generate
+                    Select a chest radiograph or CT study and compile features to generate
                     clinical impression drafts here.
                   </p>
                 </div>

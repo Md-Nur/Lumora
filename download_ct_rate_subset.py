@@ -39,7 +39,30 @@ def free_bytes(path):
 
 
 def resolve_token(token):
-    return token or os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN")
+    if token:
+        return token
+    # Try to load .env if python-dotenv is installed
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
+    # Standard env vars
+    for key in ("HF_TOKEN", "HUGGINGFACE_TOKEN"):
+        value = os.environ.get(key)
+        if value:
+            return value
+    # System-level token stored by `huggingface-cli login` (takes priority over custom .env key)
+    cached = Path.home() / ".cache" / "huggingface" / "token"
+    if cached.exists():
+        tok = cached.read_text().strip()
+        if tok:
+            return tok
+    # Custom .env key (fallback — may lack download permissions)
+    value = os.environ.get("hf_ct_scan_token")
+    if value:
+        return value
+    return None
 
 
 def ensure_metadata(data_dir, token):
@@ -74,10 +97,20 @@ def volume_plan(data_dir, min_valid_volumes):
         for entry in valid_entries:
             if existing_valid_count + len(valid_needed) >= min_valid_volumes:
                 break
+            # Skip if already converted to 2D PNG
+            if entry["volume_name"].endswith(".png") or (entry.get("image_path") and Path(entry["image_path"]).exists()):
+                continue
             if not Path(entry["volume_path"]).exists():
                 valid_needed.append(("valid", entry))
 
-    train_needed = [("train", entry) for entry in train_entries if not Path(entry["volume_path"]).exists()]
+    train_needed = []
+    for entry in train_entries:
+        # Skip if already converted to 2D PNG
+        if entry["volume_name"].endswith(".png") or (entry.get("image_path") and Path(entry["image_path"]).exists()):
+            continue
+        if not Path(entry["volume_path"]).exists():
+            train_needed.append(("train", entry))
+            
     return valid_needed + train_needed
 
 
