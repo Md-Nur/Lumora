@@ -433,7 +433,7 @@ class CTRateReportDataset(Dataset):
         if not self.entries:
             raise ValueError(
                 "No local CT-RATE volumes or images matched the report CSV. "
-                "Run convert_and_clean.py or the notebook download cell first."
+                "Run download_ct_rate_subset.py or the notebook download cell first."
             )
 
         self.transform = transforms.Compose(

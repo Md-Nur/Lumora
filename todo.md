@@ -1,5 +1,7 @@
 - create and run a script to convert all the 3d data to 2d and save in the data folder. This will be used for training the model in the next phase.
 
+- read other papers and compare our model architecture with them. try to find out the best architecture for our model and implement it.
+
 - After download the data train and export the model and upload in the huggingface model hub. This will be used for inference in the next phase.
 
 - Transfer the 2d data folder to pendrive and give it to pranto
