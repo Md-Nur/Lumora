@@ -21,9 +21,6 @@ jobs:
         working-directory: lumora-web/backend
         run: uv run python -m py_compile main.py
 
-      - name: Check Hugging Face Space syntax
-        working-directory: lumora-web/backend/lumora
-        run: uv run python -m py_compile main.py
 
   frontend:
     name: Frontend checks

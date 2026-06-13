@@ -36,7 +36,7 @@ uv run python scripts/upload_hf_model.py \
 
 ## Deploy The Space
 
-The `Deploy Hugging Face Space` workflow syncs `lumora-web/backend/lumora` to the Space whenever files in that folder change on `main`. It can also be run manually from GitHub Actions.
+The `Deploy Hugging Face Space` workflow syncs `lumora-web/backend` to the Space whenever files in that folder change on `main`. It can also be run manually from GitHub Actions.
 
 ## Model Upload Workflow
 

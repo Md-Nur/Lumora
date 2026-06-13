@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "lumora-web/backend/lumora/**"
+      - "lumora-web/backend/**"
       - ".github/workflows/deploy-hf-space.yml"
   workflow_dispatch:
 
@@ -25,7 +25,7 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Compile Space app
-        working-directory: lumora-web/backend/lumora
+        working-directory: lumora-web/backend
         run: uv run python -m py_compile main.py
 
   deploy:
@@ -44,4 +44,4 @@ jobs:
           hf_token: ${{ secrets.HF_TOKEN }}
           repo_type: space
           space_sdk: docker
-          subdirectory: lumora-web/backend/lumora
+          subdirectory: lumora-web/backend
