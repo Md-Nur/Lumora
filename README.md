@@ -98,6 +98,10 @@ The first line of defense in the pipeline. A **YOLOv11s-cls** image classifier t
 - **Pre-screen**: An additional variance-based heuristic rejects blank or near-uniform images before the YOLO forward pass
 - **Inference output**: Class label + confidence score; only `xray` or `ct_scan` labels above threshold proceed
 
+<p align="center">
+  <img src="figure/yolo_guardrail_metrics.png" alt="YOLO Guardrail Confusion Matrix" width="450" />
+</p>
+
 ### 2. 🩻 X-Ray Vision-Language Model
 
 The core report generation model for **frontal chest X-rays**. Built as a custom multimodal architecture combining a DenseNet-121 visual encoder with a GPT-2 language decoder, bridged by a learned linear projector.
@@ -108,6 +112,10 @@ The core report generation model for **frontal chest X-rays**. Built as a custom
 - **Training**: Two-phase strategy — Phase 1 freezes the encoder and trains only the projector + decoder; Phase 2 fine-tunes the entire network end-to-end at a lower learning rate
 - **Dataset**: Trained on **MIMIC-CXR** (64,592 image-report pairs from the Medical Information Mart for Intensive Care)
 
+<p align="center">
+  <img src="figure/xray_vlm_metrics.png" alt="X-Ray VLM Training Loss" width="450" />
+</p>
+
 ### 3. 🫁 CT Vision-Language Model
 
 An architecturally identical VLM to the X-ray model, separately fine-tuned for **CT scan** report generation.
@@ -116,6 +124,10 @@ An architecturally identical VLM to the X-ray model, separately fine-tuned for *
 - **Architecture**: Same `DenseNet-121 → Projector → GPT-2` pipeline as the X-ray VLM
 - **Training**: Same two-phase regime; trained on **CT-RATE** dataset (2,301 samples)
 - **Use case**: Generates narrative reports for axial CT slice imagery covering thoracic anatomy
+
+<p align="center">
+  <img src="figure/ct_vlm_metrics.png" alt="CT VLM Performance Comparison" width="600" />
+</p>
 
 ### 4. 🌐 Translation Model (T5 + LoRA)
 
@@ -127,6 +139,10 @@ Rewrites clinical radiology reports into language that patients and non-speciali
 - **Decoding**: Beam search with `num_beams=4` for fluent, coherent output
 - **Dataset**: 840 curated clinical → patient-friendly report pairs
 
+<p align="center">
+  <img src="figure/translation_metrics.png" alt="T5 Translation Loss Curve" width="450" />
+</p>
+
 ### 5. 🏥 Disease Detection Model (ClinicalBERT)
 
 A multi-label text classifier that extracts structured pathology labels from the generated narrative report.
@@ -136,6 +152,10 @@ A multi-label text classifier that extracts structured pathology labels from the
 - **Output**: Sigmoid activation produces independent probabilities for each of the 26 disease labels
 - **Threshold**: A recall-optimized threshold of `0.15` is applied at inference time
 - **Post-processing**: Mutual-exclusion logic resolves contradictions (e.g., pathologies present ↔ "No acute disease")
+
+<p align="center">
+  <img src="figure/disease_detection_metrics.png" alt="ClinicalBERT Disease Classifier Metrics" width="450" />
+</p>
 
 <details>
 <summary><strong>📋 26 Supported Pathology Labels</strong></summary>

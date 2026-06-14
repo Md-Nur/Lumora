@@ -46,6 +46,7 @@ const MODEL_SPECS = [
     valTestSize: '660 images (20%)',
     hfUrl: 'https://huggingface.co/pranto24/xray_ct_scan_identification_model',
     hfName: 'pranto24/xray_ct_scan_identification_model',
+    chartUrl: '/yolo_guardrail_metrics.png',
   },
   {
     id: 1,
@@ -74,6 +75,7 @@ const MODEL_SPECS = [
     valTestSize: '504 (Val)',
     hfUrl: 'https://huggingface.co/nur9211/mimic-vlm-model',
     hfName: 'nur9211/mimic-vlm-model',
+    chartUrl: '/xray_vlm_metrics.png',
   },
   {
     id: 2,
@@ -102,6 +104,7 @@ const MODEL_SPECS = [
     valTestSize: '106 (Val)',
     hfUrl: 'https://huggingface.co/nur9211/ct-rate-vlm-model',
     hfName: 'nur9211/ct-rate-vlm-model',
+    chartUrl: '/ct_vlm_metrics.png',
   },
   {
     id: 3,
@@ -130,6 +133,7 @@ const MODEL_SPECS = [
     valTestSize: '105 (Val) / 105 (Test)',
     hfUrl: 'https://huggingface.co/nur9211/lumora_translation',
     hfName: 'nur9211/lumora_translation',
+    chartUrl: '/translation_metrics.png',
   },
   {
     id: 4,
@@ -158,6 +162,7 @@ const MODEL_SPECS = [
     valTestSize: '105 (Val) / 105 (Test)',
     hfUrl: 'https://huggingface.co/nur9211/lumora_disease_classifier',
     hfName: 'nur9211/lumora_disease_classifier',
+    chartUrl: '/disease_detection_metrics.png',
   },
 ];
 
@@ -297,6 +302,29 @@ function ModelSpecsDashboard({ selectedModel, setSelectedModel }: { selectedMode
           <DetailRow label="Training Set" value={model.trainSize} />
           <DetailRow label="Val / Test Set" value={model.valTestSize} />
         </div>
+
+        {/* Model Performance Analytics */}
+        {model.chartUrl && (
+          <div className="md:col-span-2 clinical-card p-6 flex flex-col items-center">
+            <h3 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-2 mb-4 w-full flex items-center gap-2">
+              📊 Model Performance Analytics
+            </h3>
+            <div className="w-full max-w-2xl bg-slate-50 border border-slate-100 rounded-xl p-3 shadow-2xs hover:shadow-sm transition-all duration-300">
+              <img
+                src={model.chartUrl}
+                alt={`${model.name} Metrics Chart`}
+                className="w-full h-auto rounded-lg object-contain mix-blend-multiply"
+              />
+            </div>
+            <p className="text-[11px] text-slate-500 mt-3 font-medium max-w-prose text-center leading-relaxed">
+              {model.id === 0 && "Confusion matrix evaluating the modality classifier on test split. High specificity prevents non-medical scans from invoking downstream VLM checkpoints."}
+              {model.id === 1 && "Cross-entropy loss curves across Phase 1 (frozen visual encoder, projector tuning) and Phase 2 (joint end-to-end VLM fine-tuning) on the MIMIC-CXR dataset."}
+              {model.id === 2 && "Comparison of validation loss and perplexity (PPL) on conversion of NIfTI CT volumes to representative axial 2D slices for report generation."}
+              {model.id === 3 && "T5 Transformer sequence-to-sequence training and validation loss curves (dual y-axes) indicating stable parameter-efficient fine-tuning with LoRA."}
+              {model.id === 4 && "Micro-averaged precision, recall, and F1 scores of the Bio_ClinicalBERT pathology classifier. High recall configuration ensures safety by capturing potential findings."}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Comparison Analytics */}
