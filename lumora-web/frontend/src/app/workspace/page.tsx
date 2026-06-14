@@ -469,6 +469,12 @@ export default function Workspace() {
               >
                 Model Specifications
               </Link>
+              <Link
+                href="/comparison"
+                className="px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 transition-all"
+              >
+                Literature Comparison
+              </Link>
             </div>
           </div>
 

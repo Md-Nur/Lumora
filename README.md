@@ -27,6 +27,7 @@
 - [Architecture Overview](#-architecture-overview)
 - [Model Specifications](#-model-specifications)
 - [Individual Model Details](#-individual-model-details)
+- [Comparison with Published Literature](#-comparison-with-published-literature)
 - [Tech Stack](#-tech-stack)
 - [Getting Started](#-getting-started)
 - [Project Structure](#-project-structure)
@@ -242,6 +243,36 @@ All 26 labels used as multi-label output classes during ClinicalBERT training, w
 | 26 | Spinal Degenerative Changes | CT-RATE |
 
 </details>
+
+---
+
+## 📊 Comparison with Published Literature
+
+To evaluate the clinical efficacy and design scope of Lumora, we compare its pipeline and model coverage against two prominent published works focused on automated chest X-ray diagnosis.
+
+### 📋 Feature-by-Feature Comparison Matrix
+
+| Feature / Dimension | Paper 1: Alshmrani et al. (2023) [1] | Paper 2: Sharma & Guleria (2023) [2] | Lumora (Ours) |
+| :--- | :--- | :--- | :--- |
+| **Primary Base Model(s)** | VGG19 + 3 custom CNN blocks | VGG-16 + Neural Network classifier | **5-Model Pipeline**: YOLOv11s-cls + DenseNet121-GPT2 + Bio_ClinicalBERT + T5-small + LoRA |
+| **Supported Modalities** | Chest X-ray (CXR) only | Chest X-ray (CXR) only | **Multi-Modal**: Chest X-ray (CXR) AND Thoracic CT scans (2D axial slices) |
+| **Primary Task Scope** | Multi-class Classification | Binary Classification | **End-to-End Clinical Flow**: Guardrail → Report Gen → Label Extraction → Layperson Translation |
+| **Narrative Report Gen** | ❌ No (Outputs class labels only) | ❌ No (Outputs "Pneumonia" or "Normal") | ✅ **Yes** (Generates full, contextual English reports using visual embeddings) |
+| **Pathology Vocabulary** | 6 Classes (COVID-19, Normal, Pneumonia, Lung Opacity, TB, Cancer) | 2 Classes (Pneumonia vs. Normal) | ✅ **26 canonical pathologies** across both X-ray and CT modalities |
+| **Patient-Friendly Translation** | ❌ No | ❌ No | ✅ **Yes** (Rewrites complex clinical jargon using sequence-to-sequence T5 with LoRA adapters) |
+| **Safety Input Guardrails** | ❌ No (Assumes correct inputs) | ❌ No (Assumes correct inputs) | ✅ **Yes** (YOLOv11 guardrail checks modality and rejects non-medical images) |
+
+### 🔍 Key Scientific & Clinical Advancements of Lumora
+
+1. **Unified Clinical Workflow Integration**: Rather than acting as a standalone classification silo (like VGG19/16 in the comparative studies), Lumora mirrors real-world radiological workflows. It validates the input (YOLO Guardrail), writes a narrative report (DenseNet-GPT2 VLM), identifies multiple clinical findings (ClinicalBERT), and translates these to layperson language (T5+LoRA) for direct patient use.
+2. **Cross-Modality Versatility**: While both comparative papers are strictly limited to 2D Chest X-rays, Lumora seamlessly supports both **Chest X-rays** (via MIMIC-CXR) and **Thoracic CT Scans** (via CT-RATE).
+3. **High-Granularity Disease Mapping**: Competing models collapse diagnosis into a single label or a binary decision. Lumora classifies **26 multi-label pathologies** concurrently, capturing co-occurring conditions (e.g., Pneumonia with Pleural Effusion and Atelectasis) that are common in critical clinical environments.
+4. **Patient-Centric Health Literacy**: Lumora is the only system among the compared literature that directly bridges the communication gap between clinical staff and patients by translating jargon (e.g., "retrocardiac opacity with consolidation") into readable lay terms.
+
+### 📚 References & Citations
+
+* **[1] Alshmrani, G. M. M., Ni, Q., Jiang, R., Pervaiz, H. B., & Elshennawy, N. M. (2023).** *A deep learning architecture for multi-class lung diseases classification using chest X-ray (CXR) images.* Alexandria Engineering Journal, 64, 923-935. [https://doi.org/10.1016/j.aej.2022.10.053](https://doi.org/10.1016/j.aej.2022.10.053)
+* **[2] Sharma, S., & Guleria, K. (2023).** *A Deep Learning based model for the Detection of Pneumonia from Chest X-Ray Images using VGG-16 and Neural Networks.* Procedia Computer Science, 218, 337-346. [https://doi.org/10.1016/j.procs.2023.01.018](https://doi.org/10.1016/j.procs.2023.01.018)
 
 ---
 

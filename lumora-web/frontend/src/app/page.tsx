@@ -37,13 +37,19 @@ export default function Home() {
               >
                 Model Specifications
               </Link>
+              <Link
+                href="/comparison"
+                className="px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 transition-all"
+              >
+                Literature Comparison
+              </Link>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content Hero */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-6 py-16 flex flex-col justify-center items-center gap-12">
+      <main className="flex-1 max-w-6xl w-full mx-auto px-6 py-16 flex flex-col justify-center items-center gap-12">
         <div className="text-center space-y-4 max-w-2xl">
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
             Lumora AI Platform
@@ -55,7 +61,7 @@ export default function Home() {
         </div>
 
         {/* Portal Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
           {/* Card 1: Clinical Workspace */}
           <Link
             href="/workspace"
@@ -97,6 +103,28 @@ export default function Home() {
             </div>
             <div className="mt-8 flex items-center gap-1 text-xs font-bold text-indigo-600 group-hover:translate-x-1 transition-transform">
               View Specifications <span>→</span>
+            </div>
+          </Link>
+
+          {/* Card 3: Literature Comparison */}
+          <Link
+            href="/comparison"
+            className="group relative bg-white border border-slate-200 hover:border-emerald-400 hover:shadow-lg rounded-2xl p-8 flex flex-col justify-between transition-all duration-300 transform hover:-translate-y-1 overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50/50 rounded-bl-full -z-10 group-hover:scale-110 transition-transform duration-300" />
+            <div className="space-y-4">
+              <div className="h-12 w-12 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center text-2xl group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300">
+                📊
+              </div>
+              <h2 className="text-lg font-bold text-slate-800 group-hover:text-emerald-600 transition-colors">
+                Literature Comparison
+              </h2>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Compare Lumora with published medical SOTA models. View feature matrices, modalities scope, and interactive analysis.
+              </p>
+            </div>
+            <div className="mt-8 flex items-center gap-1 text-xs font-bold text-emerald-600 group-hover:translate-x-1 transition-transform">
+              View Comparison <span>→</span>
             </div>
           </Link>
         </div>
