@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
+import Header from "@/components/Header";
 
 interface FeatureRow {
   name: string;
@@ -118,57 +118,17 @@ export default function LiteratureComparison() {
 
   return (
     <div className="flex flex-col min-h-screen bg-[#f8fafc] font-sans antialiased text-slate-800">
-      {/* Navigation Header */}
-      <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-50 shadow-xs">
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center h-12">
-              <img
-                src="/logo.png"
-                alt="Lumora Logo"
-                className="h-11 w-auto object-contain filter hover:brightness-105 transition-all"
-              />
-            </Link>
-            <div className="h-6 w-[1px] bg-slate-200 mx-1"></div>
-            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 border border-slate-200">
-              <Link
-                href="/"
-                className="px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 transition-all"
-              >
-                Portal Home
-              </Link>
-              <Link
-                href="/workspace"
-                className="px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 transition-all"
-              >
-                Clinical Workspace
-              </Link>
-              <Link
-                href="/models"
-                className="px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 transition-all"
-              >
-                Model Specifications
-              </Link>
-              <Link
-                href="/comparison"
-                className="px-3 py-1.5 rounded-md text-xs font-bold bg-white text-blue-600 shadow-xs border border-blue-100 transition-all"
-              >
-                Literature Comparison
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header activePage="/comparison" />
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-5 sm:space-y-8">
         
         {/* Page Hero Header */}
-        <div className="text-center space-y-3 py-6 max-w-3xl mx-auto">
+        <div className="text-center space-y-3 py-4 sm:py-6 max-w-3xl mx-auto">
           <span className="text-[10px] uppercase font-bold tracking-widest bg-blue-100 text-blue-800 px-3 py-1 rounded-full border border-blue-200">
             Literature Comparison
           </span>
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent leading-tight">
             Scientific Advancements & Benchmark Analysis
           </h1>
           <p className="text-xs md:text-sm text-slate-500 font-medium leading-relaxed">
@@ -177,23 +137,23 @@ export default function LiteratureComparison() {
         </div>
 
         {/* Counter Analytics Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="clinical-card p-5 border-l-4 border-blue-500 hover:translate-y-[-2px] transition-all">
+        <div className="grid grid-cols-1 min-[360px]:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <div className="clinical-card p-3 sm:p-5 border-l-4 border-blue-500 hover:translate-y-[-2px] transition-all">
             <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Modality Scope</div>
             <div className="text-2xl font-black text-slate-800 mt-1">2 <span className="text-sm font-semibold text-slate-500">Supported</span></div>
             <div className="text-[10px] text-slate-500 mt-1">X-Ray + CT volumes (Others: CXR only)</div>
           </div>
-          <div className="clinical-card p-5 border-l-4 border-emerald-500 hover:translate-y-[-2px] transition-all">
+          <div className="clinical-card p-3 sm:p-5 border-l-4 border-emerald-500 hover:translate-y-[-2px] transition-all">
             <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Clinical Pipeline</div>
             <div className="text-2xl font-black text-slate-800 mt-1">5 <span className="text-sm font-semibold text-slate-500">Models</span></div>
             <div className="text-[10px] text-slate-500 mt-1">End-to-end processing pipeline</div>
           </div>
-          <div className="clinical-card p-5 border-l-4 border-rose-500 hover:translate-y-[-2px] transition-all">
+          <div className="clinical-card p-3 sm:p-5 border-l-4 border-rose-500 hover:translate-y-[-2px] transition-all">
             <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Disease Mapping</div>
             <div className="text-2xl font-black text-slate-800 mt-1">26 <span className="text-sm font-semibold text-slate-500">Classes</span></div>
             <div className="text-[10px] text-slate-500 mt-1">Multi-label classification (Others: 2 to 6)</div>
           </div>
-          <div className="clinical-card p-5 border-l-4 border-amber-500 hover:translate-y-[-2px] transition-all">
+          <div className="clinical-card p-3 sm:p-5 border-l-4 border-amber-500 hover:translate-y-[-2px] transition-all">
             <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Patient Care</div>
             <div className="text-2xl font-black text-slate-800 mt-1">Yes <span className="text-sm font-semibold text-slate-500">Layperson</span></div>
             <div className="text-[10px] text-slate-500 mt-1">T5 adapter translations for patient clarity</div>
@@ -201,7 +161,7 @@ export default function LiteratureComparison() {
         </div>
 
         {/* Feature Matrix Header / Filters */}
-        <div className="clinical-card p-6">
+        <div className="clinical-card p-3 sm:p-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-100 pb-4 mb-4 gap-3">
             <div>
               <h2 className="text-sm font-bold text-slate-800 tracking-wide uppercase font-mono">
@@ -211,12 +171,12 @@ export default function LiteratureComparison() {
             </div>
             
             {/* Filter buttons */}
-            <div className="flex flex-wrap gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+            <div className="flex flex-wrap gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 w-full sm:w-auto">
               {(["all", "capability", "clinical", "architecture"] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
+                  className={`flex-1 sm:flex-none px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
                     activeTab === tab
                       ? "bg-white text-slate-800 shadow-xs border border-slate-200"
                       : "text-slate-500 hover:text-slate-700"
@@ -229,8 +189,8 @@ export default function LiteratureComparison() {
           </div>
 
           {/* Interactive Feature Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
+            <table className="min-w-[720px] w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-100">
                   <th className="py-3 px-4 text-[10px] uppercase font-mono font-bold text-slate-400">Feature</th>
@@ -304,8 +264,8 @@ export default function LiteratureComparison() {
         </div>
 
         {/* Interactive Case Simulator */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="clinical-card p-6 lg:col-span-1 bg-slate-900 border-slate-800 text-white animate-fade-in">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="clinical-card p-3 sm:p-6 lg:col-span-1 bg-slate-900 border-slate-800 text-white animate-fade-in">
             <h3 className="text-xs font-bold text-blue-400 tracking-wide uppercase font-mono border-b border-slate-800 pb-2 mb-4">
               🧪 Pipeline Case Simulator
             </h3>
@@ -333,7 +293,7 @@ export default function LiteratureComparison() {
           </div>
 
           {/* Simulator Details */}
-          <div className="clinical-card p-6 lg:col-span-2 bg-white flex flex-col justify-between">
+          <div className="clinical-card p-3 sm:p-6 lg:col-span-2 bg-white flex flex-col justify-between">
             <div className="space-y-4">
               <div>
                 <h3 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-2">
@@ -345,7 +305,7 @@ export default function LiteratureComparison() {
               {/* Steps grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Lumora execution */}
-                <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-4 space-y-3">
+                <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3 sm:p-4 space-y-3">
                   <div className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Lumora (Ours) Trace</div>
                   <div className="space-y-2">
                     {scenario.lumoraSteps.map((st, idx) => (
@@ -359,13 +319,13 @@ export default function LiteratureComparison() {
 
                 {/* Comparative Models execution */}
                 <div className="flex flex-col gap-3">
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 flex-1">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4 flex-1">
                     <div className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Alshmrani et al. (VGG19)</div>
                     <div className="text-[11px] font-medium text-slate-700 mt-2 leading-relaxed bg-white border border-slate-100 rounded-lg p-2 shadow-2xs">
                       {scenario.alshmraniOutput}
                     </div>
                   </div>
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 flex-1">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4 flex-1">
                     <div className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Sharma & Guleria (VGG-16)</div>
                     <div className="text-[11px] font-medium text-slate-700 mt-2 leading-relaxed bg-white border border-slate-100 rounded-lg p-2 shadow-2xs">
                       {scenario.sharmaOutput}
@@ -375,7 +335,7 @@ export default function LiteratureComparison() {
               </div>
             </div>
             
-            <div className="text-[10px] text-slate-400 mt-4 pt-3 border-t border-slate-100 flex justify-between items-center">
+            <div className="text-[10px] text-slate-400 mt-4 pt-3 border-t border-slate-100 flex flex-wrap justify-between items-center gap-2">
               <span>Simulation mode: Sandbox (Offline API)</span>
               <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-[9px] text-slate-500">Pipeline OK</span>
             </div>
@@ -390,7 +350,7 @@ export default function LiteratureComparison() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             
             {/* Paper 1 details */}
-            <div className="clinical-card p-5">
+            <div className="clinical-card p-3 sm:p-5">
               <span className="text-[9px] font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">Reference 01</span>
               <h4 className="text-xs font-bold text-slate-800 mt-2 leading-snug">
                 A deep learning architecture for multi-class lung diseases classification using chest X-ray (CXR) images
@@ -424,7 +384,7 @@ export default function LiteratureComparison() {
             </div>
 
             {/* Paper 2 details */}
-            <div className="clinical-card p-5">
+            <div className="clinical-card p-3 sm:p-5">
               <span className="text-[9px] font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">Reference 02</span>
               <h4 className="text-xs font-bold text-slate-800 mt-2 leading-snug">
                 A Deep Learning based model for the Detection of Pneumonia from Chest X-Ray Images using VGG-16 and Neural Networks
@@ -463,10 +423,9 @@ export default function LiteratureComparison() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-6 mt-12 text-center text-[10px] font-medium tracking-wide text-slate-400">
+      <footer className="border-t border-slate-200 bg-white py-5 mt-8 text-center text-[10px] font-medium tracking-wide text-slate-400 px-3">
         <p>
-          LUMORA CLINICAL DECISION-SUPPORT SYSTEM — DESIGNED FOR LICENSED
-          HEALTHCARE PROVIDERS
+          LUMORA CLINICAL DECISION-SUPPORT SYSTEM — DESIGNED FOR LICENSED HEALTHCARE PROVIDERS
         </p>
       </footer>
     </div>

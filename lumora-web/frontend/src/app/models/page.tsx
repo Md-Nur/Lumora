@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
+import Header from "@/components/Header";
 
 // ─── Model Specifications Data ───────────────────────────────────────────────
 const MODEL_SPECS = [
@@ -211,9 +211,9 @@ const colorMap: Record<string, { bg: string; border: string; text: string; barBg
 // ─── Detail Row Helper ───────────────────────────────────────────────────────
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between items-baseline py-1.5 border-b border-slate-50 last:border-0">
-      <span className="text-[11px] text-slate-500 font-medium">{label}</span>
-      <span className="text-[11px] font-mono text-slate-800 font-semibold text-right max-w-[60%]">{value}</span>
+    <div className="flex flex-col min-[360px]:flex-row min-[360px]:justify-between gap-0.5 min-[360px]:gap-3 items-start min-[360px]:items-baseline py-1.5 border-b border-slate-50 last:border-0">
+      <span className="text-[11px] text-slate-500 font-medium shrink-0">{label}</span>
+      <span className="text-[11px] font-mono text-slate-800 font-semibold min-[360px]:text-right break-words min-[360px]:max-w-[60%]">{value}</span>
     </div>
   );
 }
@@ -222,22 +222,22 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 function ComparisonChart({ title, dataKey, formatter }: { title: string; dataKey: 'paramsNum' | 'trainSizeNum' | 'epochsNum'; formatter: (v: number) => string }) {
   const maxVal = Math.max(...MODEL_SPECS.map(m => m[dataKey]));
   return (
-    <div className="clinical-card p-5">
+    <div className="clinical-card p-3 sm:p-5">
       <h3 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-2 mb-4">{title}</h3>
       <div className="space-y-3">
         {MODEL_SPECS.map(m => {
           const pct = maxVal > 0 ? (m[dataKey] / maxVal) * 100 : 0;
           const c = colorMap[m.color];
           return (
-            <div key={m.id} className="flex items-center gap-3">
-              <span className="text-[11px] font-semibold text-slate-600 w-16 shrink-0 truncate">{m.shortName}</span>
+            <div key={m.id} className="grid grid-cols-[3.5rem_minmax(0,1fr)] min-[420px]:grid-cols-[4rem_minmax(0,1fr)_5.5rem] items-center gap-2 min-[420px]:gap-3">
+              <span className="text-[11px] font-semibold text-slate-600 truncate">{m.shortName}</span>
               <div className="flex-1 h-6 bg-slate-100 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full ${c.barBg} transition-all duration-700 ease-out`}
                   style={{ width: `${pct}%` }}
                 />
               </div>
-              <span className="text-[11px] font-mono text-slate-700 font-semibold w-24 text-right shrink-0">{formatter(m[dataKey])}</span>
+              <span className="col-start-2 min-[420px]:col-start-auto text-[11px] font-mono text-slate-700 font-semibold min-[420px]:text-right shrink-0">{formatter(m[dataKey])}</span>
             </div>
           );
         })}
@@ -267,14 +267,14 @@ function DiseaseLabelPanel() {
   };
 
   return (
-    <div className="md:col-span-2 clinical-card p-6">
-      <h3 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-2 mb-4 flex items-center gap-2">
-        🏷️ Pathology Label Vocabulary
-        <span className="ml-auto text-[10px] font-normal text-slate-400 normal-case">Trained on MIMIC-CXR + CT-RATE</span>
+    <div className="md:col-span-2 clinical-card p-3 sm:p-6">
+      <h3 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-2 mb-4 flex flex-wrap items-center gap-2">
+        <span>🏷️ Pathology Label Vocabulary</span>
+        <span className="sm:ml-auto text-[10px] font-normal text-slate-400 normal-case">Trained on MIMIC-CXR + CT-RATE</span>
       </h3>
 
       {/* Dataset info strip */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
         <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
           <div className="text-[10px] font-bold text-blue-700 uppercase tracking-wider mb-1">🩻 MIMIC-CXR (X-Ray)</div>
           <div className="text-[11px] text-slate-600">Frontal chest radiograph reports. Captures cardiac, pulmonary, and pleural findings visible in 2D X-rays.</div>
@@ -286,7 +286,7 @@ function DiseaseLabelPanel() {
       </div>
 
       {/* Tab selector */}
-      <div className="flex gap-1 bg-slate-100 rounded-lg p-1 mb-4 w-full">
+      <div className="flex flex-col min-[420px]:flex-row gap-1 bg-slate-100 rounded-lg p-1 mb-4 w-full">
         {tabs.map(t => (
           <button
             key={t.key}
@@ -312,11 +312,11 @@ function DiseaseLabelPanel() {
         ))}
       </div>
 
-      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-4 text-[10px] text-slate-400">
+      <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-3 sm:gap-4 text-[10px] text-slate-400">
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-emerald-200 border border-emerald-300 inline-block"></span> Both datasets</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-blue-200 border border-blue-300 inline-block"></span> MIMIC-CXR only</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-violet-200 border border-violet-300 inline-block"></span> CT-RATE focused</span>
-        <span className="ml-auto">Threshold: 0.15 · Multi-label sigmoid · Post-processing: mutual-exclusion logic</span>
+        <span className="sm:ml-auto">Threshold: 0.15 · Multi-label sigmoid · Post-processing: mutual-exclusion logic</span>
       </div>
     </div>
   );
@@ -329,52 +329,11 @@ export default function ModelSpecifications() {
 
   return (
     <div className="flex flex-col min-h-screen bg-[#f8fafc] font-sans antialiased text-slate-800">
-      {/* Top Premium Nav Header */}
-      <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-50 shadow-xs">
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Branded Logo Image */}
-            <Link href="/" className="flex items-center h-12">
-              <img
-                src="/logo.png"
-                alt="Lumora Logo"
-                className="h-11 w-auto object-contain filter hover:brightness-105 transition-all"
-              />
-            </Link>
-            <div className="h-6 w-[1px] bg-slate-200 mx-1"></div>
-            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 border border-slate-200">
-              <Link
-                href="/"
-                className="px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 transition-all"
-              >
-                Portal Home
-              </Link>
-              <Link
-                href="/workspace"
-                className="px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 transition-all"
-              >
-                Clinical Workspace
-              </Link>
-              <Link
-                href="/models"
-                className="px-3 py-1.5 rounded-md text-xs font-bold bg-white text-blue-600 shadow-xs border border-blue-100 transition-all"
-              >
-                Model Specifications
-              </Link>
-              <Link
-                href="/comparison"
-                className="px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 transition-all"
-              >
-                Literature Comparison
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header activePage="/models" />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* Model Selector Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 min-[340px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {MODEL_SPECS.map(m => {
             const mc = colorMap[m.color];
             const isActive = m.id === selectedModel;
@@ -382,7 +341,7 @@ export default function ModelSpecifications() {
               <button
                 key={m.id}
                 onClick={() => setSelectedModel(m.id)}
-                className={`group relative p-4 rounded-xl border-2 transition-all duration-200 text-left ${
+                className={`group relative p-3 sm:p-4 rounded-xl border-2 transition-all duration-200 text-left ${
                   isActive
                     ? `${mc.bg} ${mc.border} shadow-md scale-[1.02]`
                     : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-md hover:scale-[1.02]'
@@ -402,7 +361,7 @@ export default function ModelSpecifications() {
         {/* Detail Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Overview */}
-          <div className={`clinical-card p-5 border-t-4 ${c.border}`}>
+          <div className={`clinical-card p-3 sm:p-5 border-t-4 ${c.border}`}>
             <h3 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-2 mb-4 flex items-center gap-2">
               <span className="text-base">{model.icon}</span> Overview
             </h3>
@@ -424,7 +383,7 @@ export default function ModelSpecifications() {
           </div>
 
           {/* Training Configuration */}
-          <div className="clinical-card p-5">
+          <div className="clinical-card p-3 sm:p-5">
             <h3 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-2 mb-4">
               ⚙️ Training Configuration
             </h3>
@@ -438,7 +397,7 @@ export default function ModelSpecifications() {
           </div>
 
           {/* Architecture */}
-          <div className="clinical-card p-5">
+          <div className="clinical-card p-3 sm:p-5">
             <h3 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-2 mb-4">
               🏗️ Architecture
             </h3>
@@ -449,7 +408,7 @@ export default function ModelSpecifications() {
           </div>
 
           {/* Dataset & Splits */}
-          <div className="clinical-card p-5">
+          <div className="clinical-card p-3 sm:p-5">
             <h3 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-2 mb-4">
               📊 Dataset & Splits
             </h3>
@@ -460,7 +419,7 @@ export default function ModelSpecifications() {
 
           {/* Model Performance Analytics */}
           {model.chartUrl && (
-            <div className="md:col-span-2 clinical-card p-6 flex flex-col items-center">
+            <div className="md:col-span-2 clinical-card p-3 sm:p-6 flex flex-col items-center">
               <h3 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-2 mb-4 w-full flex items-center gap-2">
                 📊 Model Performance Analytics
               </h3>
@@ -515,10 +474,9 @@ export default function ModelSpecifications() {
       </main>
 
       {/* Clean clinical footer */}
-      <footer className="border-t border-slate-200 bg-white py-6 mt-12 text-center text-[10px] font-medium tracking-wide text-slate-400">
+      <footer className="border-t border-slate-200 bg-white py-5 mt-8 text-center text-[10px] font-medium tracking-wide text-slate-400 px-3">
         <p>
-          LUMORA CLINICAL DECISION-SUPPORT SYSTEM — DESIGNED FOR LICENSED
-          HEALTHCARE PROVIDERS
+          LUMORA CLINICAL DECISION-SUPPORT SYSTEM — DESIGNED FOR LICENSED HEALTHCARE PROVIDERS
         </p>
       </footer>
     </div>
