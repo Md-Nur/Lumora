@@ -157,6 +157,49 @@ const MODEL_SPECS = [
   },
 ];
 
+// ─── Disease Label Data ──────────────────────────────────────────────────────
+const XRAY_DISEASES = [
+  'Atelectasis', 'Cardiomegaly', 'Pleural Effusion', 'Pneumonia', 'Pneumothorax',
+  'Pulmonary Edema/Vascular Congestion', 'Consolidation', 'No Acute Cardiopulmonary Disease',
+  'Pulmonary Fibrosis/Scarring', 'Pulmonary Nodules', 'Rib/Bone Fracture', 'Possible Aspiration',
+];
+
+const CT_DISEASES = [
+  'Atherosclerosis', 'Emphysema/COPD', 'Hepatic Steatosis', 'Hiatal Hernia',
+  'Pericardial Effusion', 'Mosaic Attenuation Pattern', 'Aortic Dilation',
+  'Lymphadenopathy', 'Cholelithiasis', 'Osteoporosis', 'Spinal Degenerative Changes',
+  'Mild Scoliosis', 'Pulmonary Artery Enlargement', 'Possible Malignancy/Mass',
+];
+
+const ALL_LABELS: { label: string; source: 'X-Ray' | 'CT' | 'Both' }[] = [
+  { label: 'Aortic Dilation', source: 'CT' },
+  { label: 'Atelectasis', source: 'Both' },
+  { label: 'Atherosclerosis', source: 'CT' },
+  { label: 'Cardiomegaly', source: 'Both' },
+  { label: 'Cholelithiasis', source: 'CT' },
+  { label: 'Consolidation', source: 'Both' },
+  { label: 'Emphysema/COPD', source: 'CT' },
+  { label: 'Hepatic Steatosis', source: 'CT' },
+  { label: 'Hiatal Hernia', source: 'CT' },
+  { label: 'Lymphadenopathy', source: 'CT' },
+  { label: 'Mild Scoliosis', source: 'CT' },
+  { label: 'Mosaic Attenuation Pattern', source: 'CT' },
+  { label: 'No Acute Cardiopulmonary Disease', source: 'Both' },
+  { label: 'Osteoporosis', source: 'CT' },
+  { label: 'Pericardial Effusion', source: 'CT' },
+  { label: 'Pleural Effusion', source: 'Both' },
+  { label: 'Pneumonia', source: 'Both' },
+  { label: 'Pneumothorax', source: 'X-Ray' },
+  { label: 'Possible Aspiration', source: 'Both' },
+  { label: 'Possible Malignancy/Mass', source: 'CT' },
+  { label: 'Pulmonary Artery Enlargement', source: 'CT' },
+  { label: 'Pulmonary Edema/Vascular Congestion', source: 'Both' },
+  { label: 'Pulmonary Fibrosis/Scarring', source: 'Both' },
+  { label: 'Pulmonary Nodules', source: 'Both' },
+  { label: 'Rib/Bone Fracture', source: 'Both' },
+  { label: 'Spinal Degenerative Changes', source: 'CT' },
+];
+
 const colorMap: Record<string, { bg: string; border: string; text: string; barBg: string; lightBg: string }> = {
   emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', barBg: 'bg-emerald-500', lightBg: 'bg-emerald-100' },
   blue: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', barBg: 'bg-blue-500', lightBg: 'bg-blue-100' },
@@ -198,6 +241,82 @@ function ComparisonChart({ title, dataKey, formatter }: { title: string; dataKey
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Disease Panel ───────────────────────────────────────────────────────────
+function DiseaseLabelPanel() {
+  const [tab, setTab] = useState<'all' | 'xray' | 'ct'>('all');
+
+  const tabs = [
+    { key: 'all', label: '🔬 All 26 Labels', count: 26 },
+    { key: 'xray', label: '🩻 X-Ray Only', count: XRAY_DISEASES.length },
+    { key: 'ct', label: '🧠 CT Scan Focused', count: CT_DISEASES.length },
+  ] as const;
+
+  const displayed = tab === 'all' ? ALL_LABELS
+    : tab === 'xray' ? ALL_LABELS.filter(d => d.source === 'X-Ray' || d.source === 'Both')
+    : ALL_LABELS.filter(d => d.source === 'CT' || d.source === 'Both');
+
+  const sourceBadge = (source: 'X-Ray' | 'CT' | 'Both') => {
+    if (source === 'X-Ray') return <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 shrink-0">X-Ray</span>;
+    if (source === 'CT') return <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200 shrink-0">CT</span>;
+    return <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 shrink-0">Both</span>;
+  };
+
+  return (
+    <div className="md:col-span-2 clinical-card p-6">
+      <h3 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-2 mb-4 flex items-center gap-2">
+        🏷️ Pathology Label Vocabulary
+        <span className="ml-auto text-[10px] font-normal text-slate-400 normal-case">Trained on MIMIC-CXR + CT-RATE</span>
+      </h3>
+
+      {/* Dataset info strip */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
+          <div className="text-[10px] font-bold text-blue-700 uppercase tracking-wider mb-1">🩻 MIMIC-CXR (X-Ray)</div>
+          <div className="text-[11px] text-slate-600">Frontal chest radiograph reports. Captures cardiac, pulmonary, and pleural findings visible in 2D X-rays.</div>
+        </div>
+        <div className="rounded-xl border border-violet-100 bg-violet-50 p-3">
+          <div className="text-[10px] font-bold text-violet-700 uppercase tracking-wider mb-1">🧠 CT-RATE (CT Scan)</div>
+          <div className="text-[11px] text-slate-600">Thoracic CT reports. Includes deeper anatomical structures — abdominal organs, vascular, musculoskeletal findings.</div>
+        </div>
+      </div>
+
+      {/* Tab selector */}
+      <div className="flex gap-1 bg-slate-100 rounded-lg p-1 mb-4 w-full">
+        {tabs.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`flex-1 py-1.5 px-2 rounded-md text-[10px] font-bold transition-all duration-150 flex items-center justify-center gap-1 ${
+              tab === t.key ? 'bg-white text-slate-800 shadow-xs border border-slate-200' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {t.label}
+            <span className="bg-slate-200 text-slate-600 rounded-full px-1.5 py-0.5 text-[9px] font-mono">{t.count}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Disease pill grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+        {displayed.map((d, i) => (
+          <div key={d.label} className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 hover:border-slate-200 hover:bg-white transition-all duration-150">
+            <span className="text-[10px] font-mono text-slate-400 w-5 shrink-0">{String(i + 1).padStart(2, '0')}</span>
+            <span className="text-[11px] font-semibold text-slate-700 leading-tight">{d.label}</span>
+            {sourceBadge(d.source)}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-4 text-[10px] text-slate-400">
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-emerald-200 border border-emerald-300 inline-block"></span> Both datasets</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-blue-200 border border-blue-300 inline-block"></span> MIMIC-CXR only</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-violet-200 border border-violet-300 inline-block"></span> CT-RATE focused</span>
+        <span className="ml-auto">Threshold: 0.15 · Multi-label sigmoid · Post-processing: mutual-exclusion logic</span>
       </div>
     </div>
   );
@@ -356,6 +475,13 @@ export default function ModelSpecifications() {
             </div>
           )}
         </div>
+
+        {/* Disease Label Panel — only for ClinicalBERT */}
+        {model.id === 4 && (
+          <div className="grid grid-cols-1">
+            <DiseaseLabelPanel />
+          </div>
+        )}
 
         {/* Comparison Analytics */}
         <div>

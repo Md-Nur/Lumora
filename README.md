@@ -158,23 +158,88 @@ A multi-label text classifier that extracts structured pathology labels from the
 </p>
 
 <details>
-<summary><strong>📋 26 Supported Pathology Labels</strong></summary>
+<summary><strong>📋 26 Supported Pathology Labels — Full Dataset Breakdown</strong></summary>
 
-| # | Pathology | # | Pathology |
-|---|-----------|---|-----------|
-| 1 | Aortic Dilation | 14 | Osteoporosis |
-| 2 | Atelectasis | 15 | Pericardial Effusion |
-| 3 | Atherosclerosis | 16 | Pleural Effusion |
-| 4 | Cardiomegaly | 17 | Pneumonia |
-| 5 | Cholelithiasis | 18 | Pneumothorax |
-| 6 | Consolidation | 19 | Possible Aspiration |
-| 7 | Emphysema/COPD | 20 | Possible Malignancy/Mass |
-| 8 | Hepatic Steatosis | 21 | Pulmonary Artery Enlargement |
-| 9 | Hiatal Hernia | 22 | Pulmonary Edema/Vascular Congestion |
-| 10 | Lymphadenopathy | 23 | Pulmonary Fibrosis/Scarring |
-| 11 | Mild Scoliosis | 24 | Pulmonary Nodules |
-| 12 | Mosaic Attenuation Pattern | 25 | Rib/Bone Fracture |
-| 13 | No Acute Cardiopulmonary Disease | 26 | Spinal Degenerative Changes |
+The ClinicalBERT classifier is trained on reports from **both** the MIMIC-CXR (X-Ray) and CT-RATE (CT) datasets combined. The 26 canonical labels were selected as those appearing ≥ 8 times across the unified training corpus.
+
+---
+
+#### 🩻 X-Ray (MIMIC-CXR) — Primary Disease Coverage
+
+Diseases commonly observed in frontal chest radiograph reports from the MIMIC-CXR dataset:
+
+| # | Disease Label | Frequency (approx.) |
+|---|--------------|---------------------|
+| 1 | **Atelectasis** | Very High |
+| 2 | **Cardiomegaly** | Very High |
+| 3 | **Pleural Effusion** | Very High |
+| 4 | **Pneumonia** | High |
+| 5 | **Pneumothorax** | High |
+| 6 | **Pulmonary Edema/Vascular Congestion** | High |
+| 7 | **Consolidation** | Moderate |
+| 8 | **No Acute Cardiopulmonary Disease** | Very High |
+| 9 | **Pulmonary Fibrosis/Scarring** | Moderate |
+| 10 | **Pulmonary Nodules** | Moderate |
+| 11 | **Rib/Bone Fracture** | Moderate |
+| 12 | **Possible Aspiration** | Low–Moderate |
+
+---
+
+#### 🧠 CT Scan (CT-RATE) — Extended Disease Coverage
+
+Diseases additionally observed in thoracic CT reports from the CT-RATE dataset (CT captures deeper anatomical structures beyond chest X-rays):
+
+| # | Disease Label | Frequency (approx.) |
+|---|--------------|---------------------|
+| 1 | **Atherosclerosis** | High |
+| 2 | **Emphysema/COPD** | High |
+| 3 | **Hepatic Steatosis** | Moderate |
+| 4 | **Hiatal Hernia** | Moderate |
+| 5 | **Pericardial Effusion** | Moderate |
+| 6 | **Mosaic Attenuation Pattern** | Moderate |
+| 7 | **Aortic Dilation** | Low–Moderate |
+| 8 | **Lymphadenopathy** | Low–Moderate |
+| 9 | **Cholelithiasis** | Low–Moderate |
+| 10 | **Osteoporosis** | Low–Moderate |
+| 11 | **Spinal Degenerative Changes** | Moderate |
+| 12 | **Mild Scoliosis** | Low–Moderate |
+| 13 | **Pulmonary Artery Enlargement** | Low–Moderate |
+| 14 | **Possible Malignancy/Mass** | Low |
+
+---
+
+#### 🔬 Combined 26-Label Vocabulary (ClinicalBERT Output Classes)
+
+All 26 labels used as multi-label output classes during ClinicalBERT training, with dataset origin noted:
+
+| # | Pathology | Primary Dataset Source |
+|---|-----------|----------------------|
+| 1 | Aortic Dilation | CT-RATE |
+| 2 | Atelectasis | MIMIC-CXR + CT-RATE |
+| 3 | Atherosclerosis | CT-RATE |
+| 4 | Cardiomegaly | MIMIC-CXR + CT-RATE |
+| 5 | Cholelithiasis | CT-RATE |
+| 6 | Consolidation | MIMIC-CXR + CT-RATE |
+| 7 | Emphysema/COPD | CT-RATE |
+| 8 | Hepatic Steatosis | CT-RATE |
+| 9 | Hiatal Hernia | CT-RATE |
+| 10 | Lymphadenopathy | CT-RATE |
+| 11 | Mild Scoliosis | CT-RATE |
+| 12 | Mosaic Attenuation Pattern | CT-RATE |
+| 13 | No Acute Cardiopulmonary Disease | MIMIC-CXR + CT-RATE |
+| 14 | Osteoporosis | CT-RATE |
+| 15 | Pericardial Effusion | CT-RATE |
+| 16 | Pleural Effusion | MIMIC-CXR + CT-RATE |
+| 17 | Pneumonia | MIMIC-CXR + CT-RATE |
+| 18 | Pneumothorax | MIMIC-CXR |
+| 19 | Possible Aspiration | MIMIC-CXR + CT-RATE |
+| 20 | Possible Malignancy/Mass | CT-RATE |
+| 21 | Pulmonary Artery Enlargement | CT-RATE |
+| 22 | Pulmonary Edema/Vascular Congestion | MIMIC-CXR + CT-RATE |
+| 23 | Pulmonary Fibrosis/Scarring | MIMIC-CXR + CT-RATE |
+| 24 | Pulmonary Nodules | MIMIC-CXR + CT-RATE |
+| 25 | Rib/Bone Fracture | MIMIC-CXR + CT-RATE |
+| 26 | Spinal Degenerative Changes | CT-RATE |
 
 </details>
 
