@@ -15,4 +15,6 @@ dependencies = [
     "transformers>=5.9.0",
     "uvicorn>=0.48.0",
     "ultralytics>=8.4.62",
+    "peft>=0.19.1",
+    "accelerate>=1.14.0",
 ]

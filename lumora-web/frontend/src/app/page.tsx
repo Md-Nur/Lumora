@@ -31,6 +31,9 @@ export default function Workspace() {
   // Results
   const [reportText, setReportText] = useState<string>("");
   const [displayedReport, setDisplayedReport] = useState<string>("");
+  const [translationText, setTranslationText] = useState<string>("");
+  const [displayedTranslation, setDisplayedTranslation] = useState<string>("");
+  const [diseases, setDiseases] = useState<string[]>([]);
   const [telemetry, setTelemetry] = useState<Telemetry>({
     status: "none",
     meanSaturation: 0.0,
@@ -42,6 +45,7 @@ export default function Workspace() {
   });
 
   const typewriterIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const translationTypewriterRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isNiftiFile = (name: string) => {
@@ -78,14 +82,13 @@ export default function Workspace() {
     return () => clearInterval(interval);
   }, []);
 
-  // Typewriter effect
+  // Typewriter effect for Clinical Report
   useEffect(() => {
     if (typewriterIntervalRef.current) {
       clearInterval(typewriterIntervalRef.current);
     }
 
     if (!reportText) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDisplayedReport("");
       return;
     }
@@ -101,13 +104,43 @@ export default function Workspace() {
         if (typewriterIntervalRef.current)
           clearInterval(typewriterIntervalRef.current);
       }
-    }, 8); // Fast, elegant clinical rendering
+    }, 8);
 
     return () => {
       if (typewriterIntervalRef.current)
         clearInterval(typewriterIntervalRef.current);
     };
   }, [reportText]);
+
+  // Typewriter effect for Patient Translation
+  useEffect(() => {
+    if (translationTypewriterRef.current) {
+      clearInterval(translationTypewriterRef.current);
+    }
+
+    if (!translationText) {
+      setDisplayedTranslation("");
+      return;
+    }
+
+    let currentIndex = 0;
+    setDisplayedTranslation("");
+
+    translationTypewriterRef.current = setInterval(() => {
+      if (currentIndex < translationText.length) {
+        setDisplayedTranslation((prev) => prev + translationText.charAt(currentIndex));
+        currentIndex++;
+      } else {
+        if (translationTypewriterRef.current)
+          clearInterval(translationTypewriterRef.current);
+      }
+    }, 8);
+
+    return () => {
+      if (translationTypewriterRef.current)
+        clearInterval(translationTypewriterRef.current);
+    };
+  }, [translationText]);
 
   // Handle Drag & Drop
   const handleDragOver = (e: React.DragEvent) => {
@@ -147,6 +180,9 @@ export default function Workspace() {
       setIsPreset(false); // Reset preset flag on manual upload
       setReportText("");
       setDisplayedReport("");
+      setTranslationText("");
+      setDisplayedTranslation("");
+      setDiseases([]);
       setTelemetry({
         status: "none",
         meanSaturation: 0.0,
@@ -170,6 +206,9 @@ export default function Workspace() {
     setIsProcessing(true);
     setReportText("");
     setDisplayedReport("");
+    setTranslationText("");
+    setDisplayedTranslation("");
+    setDiseases([]);
 
     // Aesthetic diagnostic prep delay
     await new Promise((resolve) => setTimeout(resolve, 800));
@@ -203,6 +242,8 @@ export default function Workspace() {
         setReportText(
           "VERIFICATION FAULT: Non-Medical Asset Detected.\n\nThe uploaded image has been analyzed by the system's structural validation layers and does not conform to standard chest radiography blueprints. Photographic chromatic complexity was also caught.\n\nACTION REQUIRED:\nPlease verify that the selected file is indeed a valid frontal (PA/AP) or lateral diagnostic chest radiograph scan and re-submit.",
         );
+        setTranslationText("");
+        setDiseases([]);
       } else {
         const isPathologicalCase =
           file?.name?.includes("pathology") ||
@@ -225,9 +266,23 @@ export default function Workspace() {
           setReportText(
             "PATIENT CLINICAL REPORT\n\nEXAMINATION: Chest Radiograph, Frontal View\n\nCLINICAL HISTORY: Cough and progressive shortness of breath.\n\nCOMPARISON: None.\n\nFINDINGS:\nThe cardiac silhouette is mildly enlarged (cardiomegaly is present). Prominence of the bilateral pulmonary interstitial markings is demonstrated, suggesting mild interstitial vascular congestion and pulmonary edema. Small bilateral pleural effusions are noted, more prominent on the right. There are patchy basilar opacities in both lung bases, which may represent subsegmental atelectasis or early infectious consolidation. The trachea is midline. The osseous structures are intact.\n\nIMPRESSION:\n1. Mild cardiomegaly with pulmonary interstitial vascular congestion and edema.\n2. Small bilateral pleural effusions.\n3. Basilar lung opacities, which may reflect atelectasis or developing consolidation.",
           );
+          setDiseases([
+            "Cardiomegaly",
+            "Pulmonary Edema/Vascular Congestion",
+            "Pleural Effusion",
+            "Atelectasis",
+            "Consolidation"
+          ]);
+          setTranslationText(
+            "The X-ray shows your heart is slightly enlarged. There is also sign of extra fluid in your lungs and around them, which suggests some congestion. Patchy areas at the bottom of the lungs could be from minor lung collapse or early signs of infection."
+          );
         } else {
           setReportText(
             "PATIENT CLINICAL REPORT\n\nEXAMINATION: Chest Radiograph, Frontal View\n\nCLINICAL HISTORY: Screening.\n\nCOMPARISON: None.\n\nFINDINGS:\nThe lungs are clear and fully inflated. No focal consolidations, nodules, or airspace opacities are present. There is no pleural effusion or pneumothorax. The cardiomediastinal contour, cardiac silhouette size, and pulmonary vasculature are well-defined and within normal clinical limits. The mediastinal structures are unremarkable. Visualized skeletal structures are normal.\n\nIMPRESSION:\nNormal radiographic examination of the chest. No acute cardiopulmonary abnormalities detected.",
+          );
+          setDiseases(["No acute cardiopulmonary disease"]);
+          setTranslationText(
+            "No immediate heart or lung problems were found on this chest X-ray. Your heart size is normal, your lungs are clear, and there are no signs of fluid build-up or collapse."
           );
         }
       }
@@ -270,6 +325,8 @@ export default function Workspace() {
             inferenceTime: "N/A",
           });
           setReportText(data.report);
+          setTranslationText(data.translation || "");
+          setDiseases(data.diseases || []);
         } else if (response.status === 422) {
           const meanSaturation = typeof data.mean_saturation === "number" ? data.mean_saturation : 0;
           const grayStd = typeof data.gray_std === "number" ? data.gray_std : 0;
@@ -301,6 +358,8 @@ export default function Workspace() {
             ? `CT VERIFICATION FAULT\n\n${data.report || data.detail || "The uploaded CT file could not be decoded into a valid model input."}\n\nACTION REQUIRED:\nPlease upload a valid .nii, .nii.gz, or .dcm CT file and re-submit.`
             : "VERIFICATION FAULT: Non-Medical Asset Detected.\n\nThe uploaded image has been analyzed by the system's structural validation layers and does not conform to standard chest radiography blueprints. Photographic chromatic complexity was also caught.\n\nACTION REQUIRED:\nPlease verify that the selected file is indeed a valid frontal (PA/AP) or lateral diagnostic chest radiograph scan and re-submit.",
           );
+          setTranslationText("");
+          setDiseases([]);
         } else {
           throw new Error(data.detail || "Server error");
         }
@@ -310,6 +369,8 @@ export default function Workspace() {
         setReportText(
           `INFERENCE ERROR: ${errorMsg || `Failed to communicate with the Lumora analysis host. Please verify that the FastAPI backend server is active at ${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}.`}`,
         );
+        setTranslationText("");
+        setDiseases([]);
         setTelemetry({
           status: "rejected",
           meanSaturation: 0.0,
@@ -335,6 +396,9 @@ export default function Workspace() {
     setIsPreset(false);
     setReportText("");
     setDisplayedReport("");
+    setTranslationText("");
+    setDisplayedTranslation("");
+    setDiseases([]);
     setTelemetry({
       status: "none",
       meanSaturation: 0.0,
@@ -1042,6 +1106,94 @@ export default function Workspace() {
               </div>
             )}
           </div>
+
+          {/* Disease Classification Card */}
+          {(displayedReport || isProcessing) && (
+            <div className="clinical-card p-6 bg-white shadow-xs rounded-xl border border-slate-200 transition-all duration-300">
+              <h2 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-3 mb-4 flex items-center justify-between">
+                <span>Disease Classifier Findings (High-Recall)</span>
+                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold tracking-wide">
+                  ClinicalBERT
+                </span>
+              </h2>
+
+              {isProcessing && !displayedReport ? (
+                <div className="flex items-center gap-2.5 text-slate-400 text-xs animate-pulse py-2">
+                  <svg className="w-4 h-4 animate-spin text-indigo-500" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Analyzing clinical vocabulary for pathological markers...
+                </div>
+              ) : diseases.length > 0 ? (
+                <div className="flex flex-wrap gap-2.5 py-1">
+                  {diseases.map((disease, idx) => {
+                    const isNormal = disease === "No acute cardiopulmonary disease" || disease === "None";
+                    return (
+                      <span
+                        key={idx}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all hover:scale-105 duration-200 flex items-center gap-1.5 shadow-2xs ${
+                          isNormal
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : "bg-amber-50 text-amber-800 border-amber-200"
+                        }`}
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${isNormal ? "bg-emerald-500" : "bg-amber-500"}`}></span>
+                        {disease}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">No pathological markers identified.</p>
+              )}
+            </div>
+          )}
+
+          {/* Patient-Friendly Translation Card */}
+          {(displayedTranslation || isProcessing) && (
+            <div className="clinical-card overflow-hidden flex flex-col bg-white shadow-xs rounded-xl border border-slate-200 transition-all duration-300">
+              <div className="bg-slate-50 border-b border-slate-200 py-3.5 px-5 flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider font-mono">
+                  Patient-Friendly Translation
+                </span>
+                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 font-bold tracking-wide">
+                  T5-Small Adapter
+                </span>
+              </div>
+
+              <div className="p-6 bg-gradient-to-br from-blue-50/10 to-indigo-50/5 min-h-[140px] text-xs text-slate-700 leading-relaxed relative">
+                {isProcessing && !displayedTranslation ? (
+                  <div className="text-slate-400 flex flex-col gap-2 animate-pulse">
+                    <p>&gt; Translating medical terminology to layperson terms...</p>
+                    <p>&gt; Simplifying clinical syntax structure...</p>
+                  </div>
+                ) : displayedTranslation ? (
+                  <div className="relative z-10">
+                    <p className="font-medium text-slate-700 whitespace-pre-wrap">
+                      {displayedTranslation}
+                    </p>
+
+                    {/* Copy Translation Tool */}
+                    <div className="mt-5 pt-3.5 border-t border-slate-200/60 flex justify-end">
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(translationText);
+                          alert("Patient translation copied to clipboard.");
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-800 text-[10px] font-semibold shadow-2xs transition-all cursor-pointer"
+                      >
+                        <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                        </svg>
+                        Copy Patient Text
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )}
         </section>
       </main>
 
