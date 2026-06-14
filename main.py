@@ -1,5 +1,6 @@
 import gradio as gr
 import os
+import re
 import torch
 import torch.nn as nn
 import numpy as np
@@ -9,6 +10,8 @@ from peft import PeftModel
 import torchvision.models as models
 import torchvision.transforms as transforms
 from ultralytics import YOLO
+
+INVALID_XRAY_MESSAGE = "It is not a chest/lung X-ray image."
 
 # =====================================================================
 # 1. HARDWARE ACCELERATION & ENVIRONMENT INFRASTRUCTURE
@@ -146,6 +149,56 @@ def is_valid_medical_image(raw_image):
     except Exception as exc:
         return False, f"Modality identification error: {exc}"
 
+
+def polish_model_text(text):
+    """Conservative grammar cleanup that does not add or remove clinical findings."""
+    replacements = {
+        " ,": ",",
+        " .": ".",
+        " ;": ";",
+        " :": ":",
+        "( ": "(",
+        " )": ")",
+        "There is also sign of": "There are also signs of",
+        "there is also sign of": "there are also signs of",
+        "There is sign of": "There are signs of",
+        "there is sign of": "there are signs of",
+        "There is no signs of": "There are no signs of",
+        "there is no signs of": "there are no signs of",
+        "There are no evidence of": "There is no evidence of",
+        "there are no evidence of": "there is no evidence of",
+        "There are no pneumothorax": "There is no pneumothorax",
+        "there are no pneumothorax": "there is no pneumothorax",
+        "There are no pleural effusion": "There is no pleural effusion",
+        "there are no pleural effusion": "there is no pleural effusion",
+        "No focal consolidations": "No focal consolidation",
+        "no focal consolidations": "no focal consolidation",
+        "lung is clear": "lungs are clear",
+        "Lung is clear": "Lungs are clear",
+        "lungs is clear": "lungs are clear",
+        "Lungs is clear": "Lungs are clear",
+    }
+
+    def polish_segment(segment):
+        cleaned = segment.strip()
+        previous = None
+        while previous != cleaned:
+            previous = cleaned
+            cleaned = re.sub(r"[ \t]+", " ", cleaned)
+            for source, target in replacements.items():
+                cleaned = cleaned.replace(source, target)
+            cleaned = re.sub(r"\b(\w+)(\s+\1\b)+", r"\1", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"\s+([,.;:])", r"\1", cleaned)
+            cleaned = re.sub(r"([,.;:])([^\s])", r"\1 \2", cleaned)
+            cleaned = re.sub(r"\s+([)])", r"\1", cleaned)
+            cleaned = re.sub(r"([(])\s+", r"\1", cleaned)
+        sentences = re.split(r"(?<=[.!?])\s+", cleaned)
+        return " ".join(sentence[:1].upper() + sentence[1:] if sentence else sentence for sentence in sentences)
+
+    parts = re.split(r"(\n+)", text.strip())
+    return "".join(part if part.startswith("\n") else polish_segment(part) for part in parts).strip()
+
+
 # =====================================================================
 # 5. INFERENCE PROCESSING ENGINE (CONTINUED)
 # =====================================================================
@@ -165,12 +218,7 @@ def predict_medical_report(input_image):
     # 1. RUN GUARDRAIL CHECK USING MODALITY IDENTIFICATION MODEL
     is_valid, validation_message = is_valid_medical_image(input_image)
     if not is_valid:
-        error_msg = (
-            f"❌ INVALID IMAGE DETECTED!\n\n"
-            f"Reason: {validation_message}\n\n"
-            f"Please upload a genuine frontal chest X-ray image."
-        )
-        return error_msg, "N/A", "N/A"
+        return INVALID_XRAY_MESSAGE, "N/A", "N/A"
 
     try:
         # 2. IMAGE PREPROCESSING FOR MULTIMODAL BACKBONE
@@ -205,7 +253,7 @@ def predict_medical_report(input_image):
 
         # 6. TEXT CLEANING AND COMPILATION
         raw_report_text = tokenizer.decode(generated_sequence[0], skip_special_tokens=True)
-        compiled_report = raw_report_text.strip()
+        compiled_report = polish_model_text(raw_report_text)
 
         if not compiled_report:
             compiled_report = "Clear lung fields bilaterally. No focal consolidations, pleural effusions, or pneumothorax anomalies detected."
@@ -236,7 +284,7 @@ def predict_medical_report(input_image):
         t5_enc = t5_tokenizer(input_translation_text, truncation=True, max_length=512, return_tensors="pt").to(device)
         with torch.no_grad():
             gen_ids = t5_model.generate(**t5_enc, max_length=256, num_beams=4)
-        translation = t5_tokenizer.decode(gen_ids[0], skip_special_tokens=True)
+        translation = polish_model_text(t5_tokenizer.decode(gen_ids[0], skip_special_tokens=True))
 
         return compiled_report, predicted_diseases_str, translation
 

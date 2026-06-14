@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import Link from "next/link";
+import Header from "@/components/Header";
 
 interface Telemetry {
   status: "verified" | "rejected" | "none";
@@ -43,6 +43,18 @@ export default function Workspace() {
     engineUsed: "N/A",
     inferenceTime: "N/A",
   });
+
+  const invalidMessageForModality = (selectedModality: Modality) =>
+    selectedModality === "ct"
+      ? "It is not a chest/lung CT scan."
+      : "It is not a chest/lung X-ray image.";
+
+  const resolveInvalidScanMessage = (selectedModality: Modality, backendReport?: string) => {
+    if (!backendReport || backendReport.includes("x-ray or chest/lung ct-scan")) {
+      return invalidMessageForModality(selectedModality);
+    }
+    return backendReport;
+  };
 
   const typewriterIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const translationTypewriterRef = useRef<NodeJS.Timeout | null>(null);
@@ -228,7 +240,7 @@ export default function Workspace() {
       if (isInvalidCase) {
         setTelemetry({
           status: "rejected",
-          meanSaturation: 0.38,  // high saturation → colorful photo
+          meanSaturation: 0.38,
           saturationThreshold: 0.15,
           grayStd: 74.2,
           contrastThreshold: 8.0,
@@ -239,9 +251,7 @@ export default function Workspace() {
           engineUsed: "Clinical Physics Guardrail",
           inferenceTime: `${elapsedSeconds}s`,
         });
-        setReportText(
-          "VERIFICATION FAULT: Non-Medical Asset Detected.\n\nThe uploaded image has been analyzed by the system's structural validation layers and does not conform to standard chest radiography blueprints. Photographic chromatic complexity was also caught.\n\nACTION REQUIRED:\nPlease verify that the selected file is indeed a valid frontal (PA/AP) or lateral diagnostic chest radiograph scan and re-submit.",
-        );
+        setReportText(invalidMessageForModality("xray"));
         setTranslationText("");
         setDiseases([]);
       } else {
@@ -273,7 +283,7 @@ export default function Workspace() {
             "Consolidation"
           ]);
           setTranslationText(
-            "The X-ray shows your heart is slightly enlarged. There is also sign of extra fluid in your lungs and around them, which suggests some congestion. Patchy areas at the bottom of the lungs could be from minor lung collapse or early signs of infection."
+            "The X-ray shows your heart is slightly enlarged. There are also signs of extra fluid in and around your lungs, which suggests some congestion. Patchy areas at the bottom of the lungs could be from minor lung collapse or early signs of infection."
           );
         } else {
           setReportText(
@@ -329,7 +339,7 @@ export default function Workspace() {
         } else if (response.status === 422) {
           const meanSaturation = typeof data.mean_saturation === "number" ? data.mean_saturation : 0;
           const grayStd = typeof data.gray_std === "number" ? data.gray_std : 0;
-          
+
           let contrastMessage = "Contrast verification complete.";
           if (typeof data.gray_std === "number") {
             contrastMessage = data.gray_std < 8.0
@@ -353,10 +363,7 @@ export default function Workspace() {
             engineUsed: modality === "ct" ? "CT Input Validator" : "Clinical Physics Guardrail",
             inferenceTime: "N/A",
           });
-          setReportText(modality === "ct"
-            ? `CT VERIFICATION FAULT\n\n${data.report || data.detail || "The uploaded CT file could not be decoded into a valid model input."}\n\nACTION REQUIRED:\nPlease upload a valid .nii, .nii.gz, or .dcm CT file and re-submit.`
-            : "VERIFICATION FAULT: Non-Medical Asset Detected.\n\nThe uploaded image has been analyzed by the system's structural validation layers and does not conform to standard chest radiography blueprints. Photographic chromatic complexity was also caught.\n\nACTION REQUIRED:\nPlease verify that the selected file is indeed a valid frontal (PA/AP) or lateral diagnostic chest radiograph scan and re-submit.",
-          );
+          setReportText(resolveInvalidScanMessage(modality, data.report));
           setTranslationText("");
           setDiseases([]);
         } else {
@@ -437,89 +444,24 @@ export default function Workspace() {
 
   return (
     <div className="flex flex-col min-h-screen bg-[#f8fafc] font-sans antialiased text-slate-800">
-      {/* Top Premium Nav Header */}
-      <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-50 shadow-xs">
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Branded Logo Image */}
-            <Link href="/" className="flex items-center h-12">
-              <img
-                src="/logo.png"
-                alt="Lumora Logo"
-                className="h-11 w-auto object-contain filter hover:brightness-105 transition-all"
-              />
-            </Link>
-            <div className="h-6 w-[1px] bg-slate-200 mx-1"></div>
-            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 border border-slate-200">
-              <Link
-                href="/"
-                className="px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 transition-all"
-              >
-                Portal Home
-              </Link>
-              <Link
-                href="/workspace"
-                className="px-3 py-1.5 rounded-md text-xs font-bold bg-white text-blue-600 shadow-xs border border-blue-100 transition-all"
-              >
-                Clinical Workspace
-              </Link>
-              <Link
-                href="/models"
-                className="px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 transition-all"
-              >
-                Model Specifications
-              </Link>
-              <Link
-                href="/comparison"
-                className="px-3 py-1.5 rounded-md text-xs font-bold text-slate-500 hover:text-slate-700 transition-all"
-              >
-                Literature Comparison
-              </Link>
-            </div>
-          </div>
+      <Header activePage="/workspace" backendStatus={backendOnline} />
 
-          {/* Clinician Interface Host Status Indicator */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium">
-            {backendOnline === "checking" && (
-              <span className="flex items-center gap-1.5 text-slate-500">
-                <span className="h-2 w-2 rounded-full bg-slate-400 animate-pulse"></span>
-                Connecting to Core Engine...
-              </span>
-            )}
-
-            {backendOnline === "online" && (
-              <span className="flex items-center gap-1.5 text-emerald-700">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping"></span>
-                Inference System: Ready
-              </span>
-            )}
-
-            {backendOnline === "offline" && (
-              <span className="flex items-center gap-1.5 text-amber-700">
-                <span className="h-2 w-2 rounded-full bg-amber-500"></span>
-                Demo Simulator Active
-              </span>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
         {/* LEFT PANEL: Inputs, Upload, Presets (5 cols) */}
-        <section className="lg:col-span-5 flex flex-col gap-6">
+        <section className="lg:col-span-5 flex flex-col gap-4 sm:gap-6">
           {/* Image Upload Area Card */}
-          <div className="clinical-card p-5 flex flex-col">
-            <h2 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-2 mb-4">
+          <div className="clinical-card p-3 sm:p-5 flex flex-col">
+            <h2 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-2 mb-3 sm:mb-4">
               Patient Scan Selection
             </h2>
 
-            <div className="grid grid-cols-2 gap-2 mb-4 rounded-xl bg-slate-100 p-1 border border-slate-200">
+            <div className="grid grid-cols-1 min-[300px]:grid-cols-2 gap-2 mb-4 rounded-xl bg-slate-100 p-1 border border-slate-200">
               <button
                 type="button"
                 onClick={() => {
                   if (!file) setModality("xray");
                 }}
-                className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                className={`py-2 px-1 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
                   modality === "xray"
                     ? "bg-white text-blue-700 shadow-xs"
                     : "text-slate-500 hover:text-slate-800"
@@ -532,7 +474,7 @@ export default function Workspace() {
                 onClick={() => {
                   if (!file) setModality("ct");
                 }}
-                className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                className={`py-2 px-1 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
                   modality === "ct"
                     ? "bg-white text-blue-700 shadow-xs"
                     : "text-slate-500 hover:text-slate-800"
@@ -548,7 +490,7 @@ export default function Workspace() {
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               onClick={() => !file && fileInputRef.current?.click()}
-              className={`relative overflow-hidden rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-8 transition-all ${
+              className={`relative overflow-hidden rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-4 sm:p-8 transition-all ${
                 file
                   ? "border-slate-200 bg-slate-50/50"
                   : "border-slate-300 bg-slate-50/30 hover:bg-slate-50 hover:border-blue-400 cursor-pointer"
@@ -697,29 +639,29 @@ export default function Workspace() {
 
             {/* Compact Inline Presets */}
             {modality === "xray" && !file && (
-              <div className="mt-4 border-t border-slate-100 pt-3">
+              <div className="mt-3 sm:mt-4 border-t border-slate-100 pt-3">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 text-center">
                   Test with presets:
                 </p>
-                <div className="flex gap-2 justify-center">
+                <div className="flex gap-1.5 sm:gap-2 justify-center flex-wrap">
                   <button
                     type="button"
                     onClick={() => loadPresetCase("normal")}
-                    className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-[10px] transition-all cursor-pointer"
+                    className="px-2.5 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-[10px] transition-all cursor-pointer"
                   >
                     Clear Lungs
                   </button>
                   <button
                     type="button"
                     onClick={() => loadPresetCase("pathology")}
-                    className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-[10px] transition-all cursor-pointer"
+                    className="px-2.5 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-[10px] transition-all cursor-pointer"
                   >
                     Congestion
                   </button>
                   <button
                     type="button"
                     onClick={() => loadPresetCase("invalid")}
-                    className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-[10px] transition-all cursor-pointer"
+                    className="px-2.5 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-[10px] transition-all cursor-pointer"
                   >
                     Invalid Photo
                   </button>
@@ -728,12 +670,12 @@ export default function Workspace() {
             )}
 
             {/* Inferences Controls */}
-            <div className="mt-5 flex gap-3">
+            <div className="mt-4 sm:mt-5 flex flex-col min-[360px]:flex-row gap-2 sm:gap-3">
               {previewUrl && (
                 <button
                   onClick={handleReset}
                   disabled={isProcessing}
-                  className="px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 disabled:opacity-40 font-semibold text-xs transition-all shadow-xs cursor-pointer"
+                  className="w-full min-[360px]:w-auto px-4 py-2.5 sm:py-3 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 disabled:opacity-40 font-semibold text-xs transition-all shadow-xs cursor-pointer"
                 >
                   RESET
                 </button>
@@ -742,7 +684,7 @@ export default function Workspace() {
               <button
                 onClick={runPredictivePipeline}
                 disabled={!file || isProcessing}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-xs transition-all shadow-xs ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-4 rounded-xl font-semibold text-xs transition-all shadow-xs ${
                   !file
                     ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
                     : isProcessing
@@ -797,12 +739,12 @@ export default function Workspace() {
         </section>
 
         {/* RIGHT PANEL: Printed Report, Diseases & Translation (7 cols) */}
-        <section className="lg:col-span-7 flex flex-col gap-6">
+        <section className="lg:col-span-7 flex flex-col gap-4 sm:gap-6">
           {/* Diagnostic Clinical Report (Modern Print/EHR look) */}
           <div className="clinical-card overflow-hidden flex flex-col flex-1">
             {/* Report Card Header */}
-            <div className="bg-slate-50 border-b border-slate-200 py-3.5 px-5 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
+            <div className="bg-slate-50 border-b border-slate-200 py-3 px-3 sm:py-3.5 sm:px-5 flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+              <div className="min-w-0 flex flex-wrap items-center gap-2">
                 <span className="text-xs font-bold text-slate-700 uppercase tracking-wider font-mono">
                   DRAFT CLINICAL FINDINGS
                 </span>
@@ -820,9 +762,9 @@ export default function Workspace() {
                 )}
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="min-w-0 flex flex-wrap items-center gap-2 sm:gap-3">
                 {telemetry.status !== "none" && telemetry.engineUsed !== "N/A" && (
-                  <span className="text-[9px] text-slate-400 font-mono">
+                  <span className="max-w-full break-words text-[9px] text-slate-400 font-mono">
                     Model: {telemetry.engineUsed}
                   </span>
                 )}
@@ -844,7 +786,7 @@ export default function Workspace() {
             </div>
 
             {/* Diagnostic Document Sheet */}
-            <div className="bg-white p-8 flex-1 min-h-[320px] text-xs text-slate-800 leading-relaxed overflow-y-auto max-h-[460px] border-b border-slate-200">
+            <div className="bg-white p-4 sm:p-8 flex-1 min-h-[280px] sm:min-h-[320px] text-xs text-slate-800 leading-relaxed overflow-y-auto max-h-[420px] sm:max-h-[460px] border-b border-slate-200">
               {telemetry.status === "rejected" && (
                 <div className="mb-5 p-4 rounded-xl bg-red-50 border border-red-100 text-xs text-red-800">
                   <div className="font-bold mb-1 flex items-center gap-1.5">
@@ -871,10 +813,10 @@ export default function Workspace() {
                 </div>
               ) : displayedReport ? (
                 // Formatted clinical report print-look
-                <div className="clinical-report-sheet p-6 rounded-lg whitespace-pre-wrap font-sans text-slate-700 text-xs border border-slate-200/80 shadow-xs relative overflow-hidden">
+                <div className="clinical-report-sheet p-4 sm:p-6 rounded-lg whitespace-pre-wrap font-sans text-slate-700 text-xs border border-slate-200/80 shadow-xs relative overflow-hidden">
                   {/* Faint Brand-Aligned Background Watermark */}
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0 overflow-hidden">
-                    <span className="text-[38px] font-mono font-black text-blue-600/4 tracking-[0.25em] uppercase -rotate-12">
+                    <span className="text-[26px] sm:text-[38px] font-mono font-black text-blue-600/4 tracking-[0.14em] sm:tracking-[0.25em] uppercase -rotate-12">
                       SYSTEM DRAFT
                     </span>
                   </div>
@@ -931,7 +873,7 @@ export default function Workspace() {
 
             {/* Clinical copy tools */}
             {displayedReport && !isProcessing && (
-              <div className="bg-slate-50 py-3.5 px-5 flex justify-end gap-3">
+              <div className="bg-slate-50 py-3.5 px-3 sm:px-5 flex justify-end gap-3">
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(reportText);
@@ -939,7 +881,7 @@ export default function Workspace() {
                       "Diagnostic report draft copied to clinical clipboard.",
                     );
                   }}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-800 text-xs font-semibold shadow-xs transition-all cursor-pointer"
+                  className="w-full min-[360px]:w-auto flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-800 text-xs font-semibold shadow-xs transition-all cursor-pointer"
                 >
                   <svg
                     className="w-4 h-4 text-slate-500"
@@ -962,9 +904,9 @@ export default function Workspace() {
 
           {/* Disease Classification Card */}
           {(displayedReport || isProcessing) && (
-            <div className="clinical-card p-5 bg-white shadow-xs rounded-xl border border-slate-200 transition-all duration-300">
-              <h2 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-3 mb-4 flex items-center justify-between">
-                <span>Disease Classifier Findings (High-Recall)</span>
+            <div className="clinical-card p-3 sm:p-5 bg-white shadow-xs rounded-xl border border-slate-200 transition-all duration-300">
+              <h2 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-3 mb-4 flex flex-wrap items-center justify-between gap-2">
+                <span className="min-w-0">Disease Classifier Findings (High-Recall)</span>
                 <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold tracking-wide">
                   ClinicalBERT
                 </span>
@@ -979,7 +921,7 @@ export default function Workspace() {
                   Analyzing clinical vocabulary for pathological markers...
                 </div>
               ) : diseases.length > 0 ? (
-                <div className="flex flex-wrap gap-2.5 py-1">
+                <div className="flex flex-wrap gap-2 py-1">
                   {diseases.map((disease, idx) => {
                     const isNormal = disease === "No acute cardiopulmonary disease" || disease === "None";
                     return (
@@ -1006,7 +948,7 @@ export default function Workspace() {
           {/* Patient-Friendly Translation Card */}
           {(displayedTranslation || isProcessing) && (
             <div className="clinical-card overflow-hidden flex flex-col bg-white shadow-xs rounded-xl border border-slate-200 transition-all duration-300">
-              <div className="bg-slate-50 border-b border-slate-200 py-3.5 px-5 flex items-center justify-between">
+              <div className="bg-slate-50 border-b border-slate-200 py-3.5 px-3 sm:px-5 flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono">
                   Patient-Friendly Translation
                 </span>
@@ -1015,7 +957,7 @@ export default function Workspace() {
                 </span>
               </div>
 
-              <div className="p-6 bg-gradient-to-br from-blue-50/10 to-indigo-50/5 min-h-[120px] text-xs text-slate-700 leading-relaxed relative">
+              <div className="p-4 sm:p-6 bg-gradient-to-br from-blue-50/10 to-indigo-50/5 min-h-[120px] text-xs text-slate-700 leading-relaxed relative">
                 {isProcessing && !displayedTranslation ? (
                   <div className="text-slate-400 flex flex-col gap-2 animate-pulse">
                     <p>&gt; Translating medical terminology to layperson terms...</p>
@@ -1034,7 +976,7 @@ export default function Workspace() {
                           navigator.clipboard.writeText(translationText);
                           alert("Patient translation copied to clipboard.");
                         }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-800 text-[10px] font-semibold shadow-2xs transition-all cursor-pointer"
+                        className="w-full min-[360px]:w-auto flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-800 text-[10px] font-semibold shadow-2xs transition-all cursor-pointer"
                       >
                         <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
@@ -1051,10 +993,9 @@ export default function Workspace() {
       </main>
 
       {/* Clean clinical footer */}
-      <footer className="border-t border-slate-200 bg-white py-6 mt-12 text-center text-[10px] font-medium tracking-wide text-slate-400">
+      <footer className="border-t border-slate-200 bg-white py-5 mt-8 text-center text-[10px] font-medium tracking-wide text-slate-400 px-3">
         <p>
-          LUMORA CLINICAL DECISION-SUPPORT SYSTEM — DESIGNED FOR LICENSED
-          HEALTHCARE PROVIDERS
+          LUMORA CLINICAL DECISION-SUPPORT SYSTEM — DESIGNED FOR LICENSED HEALTHCARE PROVIDERS
         </p>
       </footer>
     </div>

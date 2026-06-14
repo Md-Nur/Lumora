@@ -1,5 +1,6 @@
 import io
 import os
+import re
 import tempfile
 from pathlib import Path
 
@@ -30,6 +31,8 @@ DISEASE_MODEL_REPO = os.environ.get("DISEASE_MODEL_REPO", "nur9211/lumora_diseas
 TRANSLATION_MODEL_REPO = os.environ.get("TRANSLATION_MODEL_REPO", "nur9211/lumora_translation")
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent.parent
+INVALID_XRAY_MESSAGE = "It is not a chest/lung X-ray image."
+INVALID_CT_MESSAGE = "It is not a chest/lung CT scan."
 
 
 app = FastAPI(
@@ -332,7 +335,56 @@ def generate_report_from_image(report_model: MedicalReportGenerator, input_image
             if next_token_id.item() == tokenizer.eos_token_id:
                 break
 
-    return tokenizer.decode(generated_sequence[0], skip_special_tokens=True).strip()
+    return polish_model_text(tokenizer.decode(generated_sequence[0], skip_special_tokens=True))
+
+
+def polish_model_text(text: str) -> str:
+    """Conservative grammar cleanup that does not add or remove clinical findings."""
+    replacements = {
+        " ,": ",",
+        " .": ".",
+        " ;": ";",
+        " :": ":",
+        "( ": "(",
+        " )": ")",
+        "There is also sign of": "There are also signs of",
+        "there is also sign of": "there are also signs of",
+        "There is sign of": "There are signs of",
+        "there is sign of": "there are signs of",
+        "There is no signs of": "There are no signs of",
+        "there is no signs of": "there are no signs of",
+        "There are no evidence of": "There is no evidence of",
+        "there are no evidence of": "there is no evidence of",
+        "There are no pneumothorax": "There is no pneumothorax",
+        "there are no pneumothorax": "there is no pneumothorax",
+        "There are no pleural effusion": "There is no pleural effusion",
+        "there are no pleural effusion": "there is no pleural effusion",
+        "No focal consolidations": "No focal consolidation",
+        "no focal consolidations": "no focal consolidation",
+        "lung is clear": "lungs are clear",
+        "Lung is clear": "Lungs are clear",
+        "lungs is clear": "lungs are clear",
+        "Lungs is clear": "Lungs are clear",
+    }
+
+    def polish_segment(segment: str) -> str:
+        cleaned = segment.strip()
+        previous = None
+        while previous != cleaned:
+            previous = cleaned
+            cleaned = re.sub(r"[ \t]+", " ", cleaned)
+            for source, target in replacements.items():
+                cleaned = cleaned.replace(source, target)
+            cleaned = re.sub(r"\b(\w+)(\s+\1\b)+", r"\1", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"\s+([,.;:])", r"\1", cleaned)
+            cleaned = re.sub(r"([,.;:])([^\s])", r"\1 \2", cleaned)
+            cleaned = re.sub(r"\s+([)])", r"\1", cleaned)
+            cleaned = re.sub(r"([(])\s+", r"\1", cleaned)
+        sentences = re.split(r"(?<=[.!?])\s+", cleaned)
+        return " ".join(sentence[:1].upper() + sentence[1:] if sentence else sentence for sentence in sentences)
+
+    parts = re.split(r"(\n+)", text.strip())
+    return "".join(part if part.startswith("\n") else polish_segment(part) for part in parts).strip()
 
 
 @app.get("/")
@@ -362,7 +414,7 @@ async def predict_medical_report(file: UploadFile = File(...)):
             status_code=422,
             content={
                 "status": "rejected",
-                "report": f"Verification Fault: {guardrail['reason']}",
+                "report": INVALID_XRAY_MESSAGE,
                 "telemetry": guardrail["reason"],
                 "mean_saturation": guardrail["mean_saturation"],
                 "gray_std": guardrail["gray_std"],
@@ -374,7 +426,7 @@ async def predict_medical_report(file: UploadFile = File(...)):
             status_code=422,
             content={
                 "status": "rejected",
-                "report": f"Verification Fault: Uploaded image was identified as {guardrail['class_name'].replace('_', ' ')} (confidence {guardrail['confidence']:.2%}) instead of X-ray.",
+                "report": INVALID_XRAY_MESSAGE,
                 "telemetry": f"Identified as {guardrail['class_name']} ({guardrail['confidence']:.3f})",
                 "mean_saturation": guardrail["mean_saturation"],
                 "gray_std": guardrail["gray_std"],
@@ -399,7 +451,7 @@ async def predict_medical_report(file: UploadFile = File(...)):
     t5_enc = translation_tokenizer(input_translation_text, truncation=True, max_length=512, return_tensors="pt").to(device)
     with torch.no_grad():
         gen_ids = translation_model.generate(**t5_enc, max_length=256, num_beams=4)
-    translation = translation_tokenizer.decode(gen_ids[0], skip_special_tokens=True)
+    translation = polish_model_text(translation_tokenizer.decode(gen_ids[0], skip_special_tokens=True))
 
     return InferenceResponse(
         status="success",
@@ -439,7 +491,7 @@ async def predict_ct_report(file: UploadFile = File(...)):
             status_code=422,
             content={
                 "status": "rejected",
-                "report": f"Verification Fault: {guardrail['reason']}",
+                "report": INVALID_CT_MESSAGE,
                 "telemetry": f"Projection pixel std {guardrail['gray_std']:.1f} < 1.0.",
                 "mean_saturation": 0.0,
                 "gray_std": guardrail["gray_std"],
@@ -451,7 +503,7 @@ async def predict_ct_report(file: UploadFile = File(...)):
             status_code=422,
             content={
                 "status": "rejected",
-                "report": f"Verification Fault: Uploaded file was identified as {guardrail['class_name'].replace('_', ' ')} (confidence {guardrail['confidence']:.2%}) instead of CT scan.",
+                "report": INVALID_CT_MESSAGE,
                 "telemetry": f"Identified as {guardrail['class_name']} ({guardrail['confidence']:.3f})",
                 "mean_saturation": 0.0,
                 "gray_std": guardrail["gray_std"],
@@ -476,7 +528,7 @@ async def predict_ct_report(file: UploadFile = File(...)):
     t5_enc = translation_tokenizer(input_translation_text, truncation=True, max_length=512, return_tensors="pt").to(device)
     with torch.no_grad():
         gen_ids = translation_model.generate(**t5_enc, max_length=256, num_beams=4)
-    translation = translation_tokenizer.decode(gen_ids[0], skip_special_tokens=True)
+    translation = polish_model_text(translation_tokenizer.decode(gen_ids[0], skip_special_tokens=True))
 
     return InferenceResponse(
         status="success",
