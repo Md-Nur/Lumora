@@ -17,7 +17,7 @@ DEFAULT_XRAY_MODEL_PATH = Path("checkpoints/x_ray/mimic_vlm_phase2_fully_trained
 DEFAULT_XRAY_VALID_CSV = Path("mimic_cxr_aug_validate.csv")
 DEFAULT_XRAY_IMG_ROOT = Path("official_data_iccv_final")
 DEFAULT_CT_MODEL_PATH = Path("checkpoints/ct_rate/ct_rate_vlm_phase2_fully_trained.pt")
-DEFAULT_CT_DATA_DIR = Path("data/ct_rate")
+DEFAULT_CT_DATA_DIR = Path("ct_data")
 MAX_TEXT_LENGTH = 128
 
 
@@ -144,9 +144,210 @@ def build_xray_dataset(args, tokenizer):
     )
 
 
-def build_ct_dataset(args, tokenizer):
-    from ct_rate_utils import CTRateReportDataset, build_entries
+REPORT_CSV_CANDIDATES = {
+    "train": [
+        "train_reports.csv",
+        "dataset/radiology_text_reports/train_reports.csv",
+        "radiology_text_reports/train_reports.csv",
+    ],
+    "valid": [
+        "validation_reports.csv",
+        "valid_reports.csv",
+        "dataset/radiology_text_reports/validation_reports.csv",
+        "dataset/radiology_text_reports/valid_reports.csv",
+        "radiology_text_reports/validation_reports.csv",
+        "radiology_text_reports/valid_reports.csv",
+    ],
+}
 
+def first_existing_path(data_dir, candidates):
+    data_dir = Path(data_dir)
+    for candidate in candidates:
+        path = data_dir / candidate
+        if path.exists():
+            return path
+    return None
+
+def read_report_csv(data_dir, split):
+    path = first_existing_path(data_dir, REPORT_CSV_CANDIDATES[split])
+    if path is None:
+        raise FileNotFoundError(
+            f"Could not find the CT-RATE {split} report CSV."
+        )
+    df = pd.read_csv(path)
+    df["__split"] = split
+    return df, path
+
+def find_volume_column(df):
+    candidates = [
+        "VolumeName",
+        "volume_name",
+        "volume",
+        "Volume",
+        "FileName",
+        "filename",
+        "Image",
+        "image",
+    ]
+    for column in candidates:
+        if column in df.columns:
+            return column
+    nii_columns = [
+        column
+        for column in df.columns
+        if df[column].astype(str).str.contains(r"\.(nii(\.gz)?|png)$", regex=True, na=False).any()
+    ]
+    if nii_columns:
+        return nii_columns[0]
+    raise ValueError(f"Could not infer a CT-RATE volume filename column from: {list(df.columns)}")
+
+def report_text(row):
+    preferred = [
+        "Findings_EN",
+        "Impressions_EN",
+        "Findings",
+        "Impressions",
+        "Report",
+        "report",
+        "Text",
+        "text",
+    ]
+    parts = []
+    for column in preferred:
+        if column in row.index and pd.notna(row[column]) and str(row[column]).strip():
+            parts.append(str(row[column]).strip())
+    if not parts:
+        ignored = {"__split"}
+        for column in row.index:
+            if column in ignored:
+                continue
+            value = row[column]
+            if pd.notna(value) and isinstance(value, str) and len(value.strip()) > 20:
+                parts.append(value.strip())
+    if not parts:
+        return "Findings: No radiology report text is available."
+    return " ".join(parts)
+
+def resolve_image_path(path_str, data_dir):
+    if not path_str:
+        return None
+    p = Path(path_str)
+    if p.exists():
+        return p
+    parts = p.parts
+    for i in range(len(parts)):
+        if parts[i] in ("train", "valid", "val", "ct_data", "images", "dataset", "data"):
+            sub_path = Path(*parts[i:])
+            if parts[i] == "ct_data" and i + 1 < len(parts) and parts[i+1] in ("train", "valid", "val"):
+                sub_path = Path(*parts[i+1:])
+            elif parts[i] == "data" and i + 1 < len(parts) and parts[i+1] == "ct_rate":
+                sub_path = Path(*parts[i+2:])
+            trial = data_dir / sub_path
+            if trial.exists():
+                return trial
+    filename = p.name
+    for s in ("train", "valid", "val"):
+        trial = data_dir / s / filename
+        if trial.exists():
+            return trial
+    return p
+
+def build_entries(data_dir, split, csv_path=None):
+    if csv_path is None:
+        df, csv_path = read_report_csv(data_dir, split)
+    else:
+        csv_path = Path(csv_path)
+        df = pd.read_csv(csv_path)
+        df["__split"] = split
+
+    volume_column = find_volume_column(df)
+    has_image_path = "image_path" in df.columns
+
+    entries = []
+    for _, row in df.iterrows():
+        volume_name = str(row[volume_column]).strip()
+        if not volume_name or volume_name.lower() == "nan":
+            continue
+
+        image_path = ""
+        if has_image_path:
+            raw = str(row.get("image_path", "")).strip()
+            if raw and raw.lower() != "nan":
+                image_path = raw
+
+        if not image_path:
+            png_name = volume_name
+            if png_name.endswith(".nii.gz"):
+                png_name = png_name.removesuffix(".nii.gz") + ".png"
+            elif not png_name.endswith(".png"):
+                png_name = png_name + ".png"
+            folder_name = "valid" if split in ("valid", "validation", "val") else split
+            image_path = str(data_dir / folder_name / png_name)
+
+        resolved_p = resolve_image_path(image_path, data_dir)
+        if resolved_p and resolved_p.exists():
+            entries.append(
+                {
+                    "split": split,
+                    "volume_name": volume_name,
+                    "image_path": str(resolved_p),
+                    "text": report_text(row),
+                }
+            )
+    if not entries:
+        raise ValueError(f"No usable CT-RATE report rows found in {csv_path} with existing local images")
+    return entries, csv_path
+
+class CTRateReportDataset(Dataset):
+    def __init__(self, entries, tokenizer, max_length=128):
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+        self.entries = entries
+        if not self.entries:
+            raise ValueError("No local CT-RATE images matched the report CSV.")
+
+        self.transform = transforms.Compose(
+            [
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225],
+                ),
+            ]
+        )
+
+    def __len__(self):
+        return len(self.entries)
+
+    def __getitem__(self, idx):
+        entry = self.entries[idx]
+        try:
+            image = Image.open(entry["image_path"]).convert("RGB")
+            image = self.transform(image)
+        except Exception:
+            image = torch.zeros(3, 224, 224)
+
+        tokens = self.tokenizer(
+            entry["text"],
+            padding="max_length",
+            truncation=True,
+            max_length=self.max_length,
+            return_tensors="pt",
+        )
+        input_ids = tokens["input_ids"].squeeze(0)
+        attention_mask = tokens["attention_mask"].squeeze(0)
+        labels = input_ids.clone()
+        labels[labels == self.tokenizer.pad_token_id] = -100
+
+        return {
+            "image": image,
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "labels": labels,
+        }
+
+def build_ct_dataset(args, tokenizer):
     entries, csv_path = build_entries(args.ct_data_dir, "valid", args.ct_valid_csv)
     if args.limit is not None:
         entries = entries[: args.limit]
