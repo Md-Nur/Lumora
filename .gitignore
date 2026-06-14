@@ -7,3 +7,7 @@ official_data_iccv_final/
 mimic_cxr_aug_train.csv
 *.env
 *.git/
+clinicalbert_disease_classifier/
+disease_classifier_model/
+t5_translation/
+translation_model/
