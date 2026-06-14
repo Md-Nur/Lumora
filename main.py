@@ -2,12 +2,12 @@ import gradio as gr
 import os
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np
 from PIL import Image
 from transformers import GPT2Tokenizer
 import torchvision.models as models
 import torchvision.transforms as transforms
+from ultralytics import YOLO
 
 # =====================================================================
 # 1. HARDWARE ACCELERATION & ENVIRONMENT INFRASTRUCTURE
@@ -68,85 +68,49 @@ ui_transform = transforms.Compose([
 ])
 
 # =====================================================================
-# 4. LIGHTWEIGHT EMBEDDING GUARDRAIL INITIALIZATION
+# 4. MODALITY IDENTIFICATION GUARDRAIL
 # =====================================================================
-# Load a lightweight ResNet18 to extract general image-world features 
-# separate from your fine-tuned DenseNet's biased medical latent space.
-guard_resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT).to(device)
-guard_resnet.fc = nn.Identity()
-guard_resnet.eval()
-
-# Generate a synthetic thoracic reference frame anchor vector based on an 
-# idealized chest anatomy density layout map (dark edges, variable gray center).
-with torch.no_grad():
-    synthetic_tensor = torch.zeros((1, 3, 224, 224)).to(device)
-    # Replicate structural center rib masses
-    synthetic_tensor[:, :, 40:184, 48:176] = 0.55
-    _raw_anchor = guard_resnet(synthetic_tensor)
-    GUARDRAIL_ANCHOR = F.normalize(_raw_anchor, p=2, dim=1)
-
-import string
-
-# Optional: If you want an absolute zero-tolerance text block policy,
-# you can run 'pip install pytesseract' in your uv environment.
-try:
-    import pytesseract
-    HAS_OCR = True
-except ImportError:
-    HAS_OCR = False
+# Load the YOLO-based modality classifier trained to distinguish between
+# ct_scan, xray, and other images.
+IDENT_MODEL_PATH = os.path.join(
+    os.path.dirname(__file__),
+    "xray_ct_scan_identification_model",
+    "xray_ct_scan_identification_model.pt",
+)
+ident_model = YOLO(IDENT_MODEL_PATH)
+ident_model.to(device)
+print(f"✅ Modality identification model loaded from: {IDENT_MODEL_PATH}")
 
 def is_valid_medical_image(raw_image):
     """
-    Production-grade structural matrix guardrail. Combines deep feature matching 
-    with a lightweight text-density validation layer to block nested layout screenshots 
-    while smoothly accepting grayscale and false-color radiology scans.
+    Guardrail using the YOLO modality identification model.
+    Accepts only X-ray images; rejects CT scans and other image types.
     """
     # Ensure standard PIL format
     if isinstance(raw_image, np.ndarray):
         raw_image = Image.fromarray(raw_image)
 
-    # 🛑 GUARD A: FAST PRE-SCREEN FOR SOLID INTERFACE PANELS
+    # 🛑 GUARD A: FAST PRE-SCREEN FOR BLANK / NEAR-UNIFORM IMAGES
     test_np = np.array(raw_image.convert('L').resize((100, 100)))
     center_var = np.var(test_np[30:70, 30:70])
     if center_var < 25.0:
-        return False, f"Flat Interface Panel Layout (Internal Variance: {center_var:.1f})"
+        return False, f"Flat or blank image detected (variance: {center_var:.1f})"
 
-    # 🛑 GUARD B: LIGHTWEIGHT TEXT-DENSITY INTERCEPTION
-    # Genuine diagnostic radiology scans do not contain sentence blocks or application UI strings.
-    if HAS_OCR:
-        try:
-            # Extract raw string patterns from the input image asset
-            extracted_text = pytesseract.image_to_string(raw_image)
-            # Filter down to alphanumeric characters to count authentic words
-            clean_text = "".join([c for c in extracted_text if c.isalnum() or c.isspace()])
-            word_count = len(clean_text.split())
-            
-            # If a screenshot contains nested UI panels or documentation text blocks, catch it immediately
-            if word_count > 8:
-                return False, f"Embedded Interface Text Block Detected ({word_count} UI string tokens found)"
-        except Exception:
-            pass  # Fall back to structural checks if the OCR engine encounters an environment issue
+    # 🟢 GUARD B: YOLO MODALITY CLASSIFICATION
+    try:
+        results = ident_model(raw_image, device=device)
+        result = results[0]
+        probs = result.probs
+        class_id = probs.top1
+        class_name = result.names[class_id]
+        confidence = float(probs.top1conf)
 
-    # 🟢 GUARD C: DEEP RESNET ALIGNMENT CHECK
-    preprocess = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-    
-    img_tensor = preprocess(raw_image.convert('RGB')).unsqueeze(0).to(device)
-    
-    with torch.no_grad():
-        current_features = guard_resnet(img_tensor)
-        normalized_features = F.normalize(current_features, p=2, dim=1)
-        similarity_score = torch.mm(normalized_features, GUARDRAIL_ANCHOR.t()).item()
-
-    # Fine-tuned baseline alignment limit
-    MINIMUM_STRUCTURAL_ALIGNMENT = 0.38
-    if similarity_score < MINIMUM_STRUCTURAL_ALIGNMENT:
-        return False, f"Invalid Anatomical Structure (Structural Congruence: {similarity_score:.3f})"
-        
-    return True, "Verified Diagnostic Scan Space"
+        if class_name == "xray":
+            return True, f"Verified X-ray (confidence: {confidence:.2%})"
+        else:
+            return False, f"Image identified as '{class_name}' ({confidence:.2%}), not an X-ray"
+    except Exception as exc:
+        return False, f"Modality identification error: {exc}"
 # =====================================================================
 # 5. INFERENCE PROCESSING ENGINE (CONTINUED)
 # =====================================================================
@@ -164,14 +128,14 @@ def predict_medical_report(input_image):
     if isinstance(input_image, np.ndarray):
         input_image = Image.fromarray(input_image)
 
-    # 1. RUN HARDENED GUARDRAIL CHECK
+    # 1. RUN GUARDRAIL CHECK USING MODALITY IDENTIFICATION MODEL
     is_valid, validation_message = is_valid_medical_image(input_image)
     if not is_valid:
         # Intercept generation loop cleanly to present validation telemetry on the UI
         return (
             f"❌ INVALID IMAGE DETECTED!\n\n"
-            f"Our system detected this image as a '{validation_message}' "
-            f"rather than a valid diagnostic scan. Please upload a genuine frontal chest X-ray."
+            f"Reason: {validation_message}\n\n"
+            f"Please upload a genuine frontal chest X-ray image."
         )
 
     try:

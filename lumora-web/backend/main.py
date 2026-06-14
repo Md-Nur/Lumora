@@ -17,12 +17,14 @@ from huggingface_hub import hf_hub_download
 from PIL import Image
 from pydantic import BaseModel
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
-
+from ultralytics import YOLO
 
 XRAY_MODEL_REPO = os.environ.get("XRAY_MODEL_REPO", "nur9211/mimic-vlm-model")
 XRAY_MODEL_FILENAME = os.environ.get("XRAY_MODEL_FILENAME", "mimic_vlm_phase2_fully_trained.pt")
 CT_MODEL_REPO = os.environ.get("CT_MODEL_REPO", "nur9211/ct-rate-vlm-model")
 CT_MODEL_FILENAME = os.environ.get("CT_MODEL_FILENAME", "ct_rate_vlm_phase2_fully_trained.pt")
+IDENT_MODEL_REPO = os.environ.get("IDENT_MODEL_REPO", "pranto24/xray_ct_scan_identification_model")
+IDENT_MODEL_FILENAME = os.environ.get("IDENT_MODEL_FILENAME", "xray_ct_scan_identification_model.pt")
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent.parent
 
@@ -132,6 +134,17 @@ ct_checkpoint_path = resolve_checkpoint(
 xray_model = load_report_model(xray_checkpoint_path, "X-ray")
 ct_model = load_report_model(ct_checkpoint_path, "CT")
 
+ident_checkpoint_path = resolve_checkpoint(
+    IDENT_MODEL_REPO,
+    IDENT_MODEL_FILENAME,
+    "IDENT_MODEL_PATH",
+    BASE_DIR / IDENT_MODEL_FILENAME,
+    PROJECT_ROOT / "xray_ct_scan_identification_model" / IDENT_MODEL_FILENAME,
+)
+ident_model = YOLO(str(ident_checkpoint_path))
+ident_model.to(device)
+print(f"Loaded Modality Identification model from {ident_checkpoint_path}")
+
 ui_transform = transforms.Compose(
     [
         transforms.Resize((224, 224)),
@@ -210,7 +223,7 @@ def dicom_bytes_to_rgb_image(file_bytes: bytes) -> Image.Image:
     return Image.merge("RGB", (projection, projection, projection))
 
 
-def is_valid_medical_image(raw_image: Image.Image) -> dict:
+def is_valid_medical_image(raw_image: Image.Image, min_contrast=8.0) -> dict:
     img_rgb = np.array(raw_image.convert("RGB").resize((224, 224))).astype(np.float32)
     pixel_max = np.max(img_rgb, axis=2)
     pixel_min = np.min(img_rgb, axis=2)
@@ -223,15 +236,46 @@ def is_valid_medical_image(raw_image: Image.Image) -> dict:
             "reason": f"Colorful natural image detected (mean saturation {mean_saturation:.3f} > 0.15).",
             "mean_saturation": mean_saturation,
             "gray_std": gray_std,
+            "class_name": "others",
+            "confidence": 1.0,
         }
-    if gray_std < 8.0:
+    if gray_std < min_contrast:
         return {
             "is_valid": False,
-            "reason": f"Image has insufficient contrast (pixel std {gray_std:.1f} < 8.0).",
+            "reason": f"Image has insufficient contrast (pixel std {gray_std:.1f} < {min_contrast}).",
             "mean_saturation": mean_saturation,
             "gray_std": gray_std,
+            "class_name": "others",
+            "confidence": 1.0,
         }
-    return {"is_valid": True, "reason": "Verified", "mean_saturation": mean_saturation, "gray_std": gray_std}
+
+    # Run YOLO classification
+    try:
+        results = ident_model(raw_image, device=device)
+        result = results[0]
+        probs = result.probs
+        class_id = probs.top1
+        class_name = result.names[class_id]
+        confidence = float(probs.top1conf)
+        
+        return {
+            "is_valid": True,
+            "reason": f"Identified as {class_name} ({confidence:.3f})",
+            "mean_saturation": mean_saturation,
+            "gray_std": gray_std,
+            "class_name": class_name,
+            "confidence": confidence,
+        }
+    except Exception as exc:
+        print(f"Error in modality identification: {exc}")
+        return {
+            "is_valid": False,
+            "reason": f"Modality identification model error: {exc}",
+            "mean_saturation": mean_saturation,
+            "gray_std": gray_std,
+            "class_name": "others",
+            "confidence": 0.0,
+        }
 
 
 def generate_report_from_image(report_model: MedicalReportGenerator, input_image: Image.Image, max_generated_tokens=64) -> str:
@@ -286,8 +330,20 @@ async def predict_medical_report(file: UploadFile = File(...)):
             status_code=422,
             content={
                 "status": "rejected",
-                "report": "Verification Fault: Please upload a valid frontal/lateral diagnostic chest X-ray scan.",
+                "report": f"Verification Fault: {guardrail['reason']}",
                 "telemetry": guardrail["reason"],
+                "mean_saturation": guardrail["mean_saturation"],
+                "gray_std": guardrail["gray_std"],
+                "modality": "xray",
+            },
+        )
+    if guardrail["class_name"] != "xray":
+        return JSONResponse(
+            status_code=422,
+            content={
+                "status": "rejected",
+                "report": f"Verification Fault: Uploaded image was identified as {guardrail['class_name'].replace('_', ' ')} (confidence {guardrail['confidence']:.2%}) instead of X-ray.",
+                "telemetry": f"Identified as {guardrail['class_name']} ({guardrail['confidence']:.3f})",
                 "mean_saturation": guardrail["mean_saturation"],
                 "gray_std": guardrail["gray_std"],
                 "modality": "xray",
@@ -325,16 +381,28 @@ async def predict_ct_report(file: UploadFile = File(...)):
         input_image = dicom_bytes_to_rgb_image(file_bytes)
         telemetry = "DICOM CT slice converted to grayscale projection."
 
-    gray_std = float(np.std(np.array(input_image.convert("L")).astype(np.float32)))
-    if gray_std < 1.0:
+    guardrail = is_valid_medical_image(input_image, min_contrast=1.0)
+    if not guardrail["is_valid"]:
         return JSONResponse(
             status_code=422,
             content={
                 "status": "rejected",
-                "report": "Verification Fault: CT file decoded but appears blank or near-uniform.",
-                "telemetry": f"Projection pixel std {gray_std:.1f} < 1.0.",
+                "report": f"Verification Fault: {guardrail['reason']}",
+                "telemetry": f"Projection pixel std {guardrail['gray_std']:.1f} < 1.0.",
                 "mean_saturation": 0.0,
-                "gray_std": gray_std,
+                "gray_std": guardrail["gray_std"],
+                "modality": "ct",
+            },
+        )
+    if guardrail["class_name"] != "ct_scan":
+        return JSONResponse(
+            status_code=422,
+            content={
+                "status": "rejected",
+                "report": f"Verification Fault: Uploaded file was identified as {guardrail['class_name'].replace('_', ' ')} (confidence {guardrail['confidence']:.2%}) instead of CT scan.",
+                "telemetry": f"Identified as {guardrail['class_name']} ({guardrail['confidence']:.3f})",
+                "mean_saturation": 0.0,
+                "gray_std": guardrail["gray_std"],
                 "modality": "ct",
             },
         )
@@ -345,7 +413,7 @@ async def predict_ct_report(file: UploadFile = File(...)):
         report=compiled_report,
         telemetry=telemetry,
         mean_saturation=0.0,
-        gray_std=gray_std,
+        gray_std=guardrail["gray_std"],
         modality="ct",
     )
 
