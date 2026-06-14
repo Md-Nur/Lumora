@@ -89,6 +89,7 @@ export default function Workspace() {
     }
 
     if (!reportText) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDisplayedReport("");
       return;
     }
@@ -119,6 +120,7 @@ export default function Workspace() {
     }
 
     if (!translationText) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDisplayedTranslation("");
       return;
     }
@@ -494,74 +496,6 @@ export default function Workspace() {
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* LEFT PANEL: Inputs, Upload, Presets (5 cols) */}
         <section className="lg:col-span-5 flex flex-col gap-6">
-          {/* Welcome and Description Panel */}
-          <div className="clinical-card p-5 relative overflow-hidden bg-gradient-to-r from-blue-50/20 to-teal-50/20 border-l-4 border-l-blue-600">
-            <h2 className="text-sm font-bold text-slate-800 tracking-wide uppercase font-mono mb-2">
-              Automated Radiograph Analysis
-            </h2>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              This clinician support tool processes uploaded chest X-rays and
-              CT studies to draft clinical findings. High-fidelity semantic
-              guardrails verify scan integrity before model inference.
-            </p>
-          </div>
-
-          {/* Quick-Test Case Presets */}
-          <div className="clinical-card p-5">
-            <h2 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-2 mb-3">
-              Diagnostic Test Cases
-            </h2>
-            <p className="text-xs text-slate-500 mb-4">
-              Click any clinical case preset to immediately populate the
-              workspace for testing:
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => loadPresetCase("normal")}
-                className="flex-1 py-2 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:border-slate-300 text-xs transition-all flex flex-col items-center justify-between min-h-[64px] shadow-xs cursor-pointer"
-              >
-                <span className="text-[9px] text-slate-400 font-bold uppercase mb-1">
-                  Case 01
-                </span>
-                <span className="font-semibold text-slate-800">
-                  Clear Lungs
-                </span>
-                <span className="text-[9px] mt-1 text-emerald-600 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded">
-                  Normal Scan
-                </span>
-              </button>
-
-              <button
-                onClick={() => loadPresetCase("pathology")}
-                className="flex-1 py-2 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:border-slate-300 text-xs transition-all flex flex-col items-center justify-between min-h-[64px] shadow-xs cursor-pointer"
-              >
-                <span className="text-[9px] text-slate-400 font-bold uppercase mb-1">
-                  Case 02
-                </span>
-                <span className="font-semibold text-slate-800">Congestion</span>
-                <span className="text-[9px] mt-1 text-blue-600 font-semibold bg-blue-50 px-1.5 py-0.5 rounded">
-                  Fluid/Atelectasis
-                </span>
-              </button>
-
-              <button
-                onClick={() => loadPresetCase("invalid")}
-                className="flex-1 py-2 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:border-slate-300 text-xs transition-all flex flex-col items-center justify-between min-h-[64px] shadow-xs cursor-pointer"
-              >
-                <span className="text-[9px] text-slate-400 font-bold uppercase mb-1">
-                  Case 03
-                </span>
-                <span className="font-semibold text-slate-800">
-                  Invalid Image
-                </span>
-                <span className="text-[9px] mt-1 text-amber-600 font-semibold bg-amber-50 px-1.5 py-0.5 rounded">
-                  Guardrail test
-                </span>
-              </button>
-            </div>
-          </div>
-
           {/* Image Upload Area Card */}
           <div className="clinical-card p-5 flex flex-col">
             <h2 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-2 mb-4">
@@ -751,6 +685,38 @@ export default function Workspace() {
               )}
             </div>
 
+            {/* Compact Inline Presets */}
+            {modality === "xray" && !file && (
+              <div className="mt-4 border-t border-slate-100 pt-3">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 text-center">
+                  Test with presets:
+                </p>
+                <div className="flex gap-2 justify-center">
+                  <button
+                    type="button"
+                    onClick={() => loadPresetCase("normal")}
+                    className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-[10px] transition-all cursor-pointer"
+                  >
+                    Clear Lungs
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => loadPresetCase("pathology")}
+                    className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-[10px] transition-all cursor-pointer"
+                  >
+                    Congestion
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => loadPresetCase("invalid")}
+                    className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-[10px] transition-all cursor-pointer"
+                  >
+                    Invalid Photo
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Inferences Controls */}
             <div className="mt-5 flex gap-3">
               {previewUrl && (
@@ -820,173 +786,36 @@ export default function Workspace() {
           </div>
         </section>
 
-        {/* RIGHT PANEL: Clinical Telemetry & Printed Report (7 cols) */}
+        {/* RIGHT PANEL: Printed Report, Diseases & Translation (7 cols) */}
         <section className="lg:col-span-7 flex flex-col gap-6">
-          {/* Clinical Guardrail Validation Card */}
-          <div className="clinical-card p-6">
-            <h2 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-3 mb-5 flex items-center justify-between">
-              <span>Clinical Safety & Integrity Guardrail</span>
-              {telemetry.status === "verified" && (
-                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                  Image Verified
-                </span>
-              )}
-              {telemetry.status === "rejected" && (
-                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-semibold flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span>
-                  Verification Failed
-                </span>
-              )}
-              {telemetry.status === "none" && (
-                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-400 border border-slate-200 font-medium">
-                  Awaiting Input
-                </span>
-              )}
-            </h2>
-
-            {/* Real Telemetry Meters — values wired to actual backend computation */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-
-              {/* Meter 1: Color Saturation Check  (mean_saturation, threshold < 0.15) */}
-              {/* Lower bar = more grayscale = GOOD. Bar turns red when above threshold. */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[11px] text-slate-500 font-bold tracking-tight uppercase flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-blue-500"></span>
-                      Color Saturation
-                    </span>
-                    <span className={`text-xs font-bold ${
-                      telemetry.status === "none" ? "text-slate-400"
-                      : telemetry.meanSaturation > telemetry.saturationThreshold ? "text-red-600"
-                      : "text-teal-700"
-                    }`}>
-                      {telemetry.status !== "none" && typeof telemetry.meanSaturation === "number"
-                        ? telemetry.meanSaturation.toFixed(3)
-                        : "—"}
-                    </span>
-                  </div>
-
-                  {/* Bar: width = meanSaturation mapped to 0–40% scale (threshold=0.15 at 37.5%) */}
-                  <div className="h-2.5 w-full bg-slate-200 rounded-full overflow-hidden relative">
-                    <div
-                      className={`h-full transition-all duration-1000 ease-out rounded-full ${
-                        telemetry.status === "none" ? "bg-slate-300"
-                        : telemetry.meanSaturation > telemetry.saturationThreshold ? "bg-red-500"
-                        : "bg-teal-600"
-                      }`}
-                      style={{
-                        width: telemetry.status === "none"
-                          ? "0%"
-                          : `${Math.min((telemetry.meanSaturation / 0.40) * 100, 100)}%`,
-                      }}
-                    />
-                    {/* Threshold marker at 0.15 / 0.40 = 37.5% */}
-                    <div
-                      className="absolute top-0 bottom-0 w-0.5 bg-slate-500 z-10"
-                      title="Rejection threshold: 0.15"
-                      style={{ left: "37.5%" }}
-                    />
-                  </div>
-
-                  <div className="flex justify-between text-[8px] font-semibold text-slate-400 mt-1">
-                    <span>Pure grayscale (0.0)</span>
-                    <span className="text-slate-500">Threshold (0.15)</span>
-                    <span>High color (0.40+)</span>
-                  </div>
-                </div>
-
-                <p className="text-[11px] text-slate-500 mt-4 leading-normal bg-white p-2.5 rounded-lg border border-slate-100">
-                  {telemetry.status !== "none"
-                    ? telemetry.saturationMessage
-                    : "Measures mean per-pixel HSV saturation. X-rays must score below 0.15 (near-zero color)."}
-                </p>
-              </div>
-
-              {/* Meter 2: Image Contrast Check  (gray_std, threshold > 8.0) */}
-              {/* Higher bar = more internal structure = GOOD. */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[11px] text-slate-500 font-bold tracking-tight uppercase flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-indigo-500"></span>
-                      Image Contrast
-                    </span>
-                    <span className={`text-xs font-bold ${
-                      telemetry.status === "none" ? "text-slate-400"
-                      : telemetry.grayStd < telemetry.contrastThreshold ? "text-red-600"
-                      : "text-indigo-700"
-                    }`}>
-                      {telemetry.status !== "none" && typeof telemetry.grayStd === "number"
-                        ? `σ ${telemetry.grayStd.toFixed(1)}`
-                        : "—"}
-                    </span>
-                  </div>
-
-                  {/* Bar: width = grayStd on a 0–100 scale. Threshold at 8.0 = 8% */}
-                  <div className="h-2.5 w-full bg-slate-200 rounded-full overflow-hidden relative">
-                    <div
-                      className={`h-full transition-all duration-1000 ease-out rounded-full ${
-                        telemetry.status === "none" ? "bg-slate-300"
-                        : telemetry.grayStd < telemetry.contrastThreshold ? "bg-red-500"
-                        : "bg-indigo-500"
-                      }`}
-                      style={{
-                        width: telemetry.status === "none"
-                          ? "0%"
-                          : `${Math.min((telemetry.grayStd / 100) * 100, 100)}%`,
-                      }}
-                    />
-                    {/* Threshold marker at 8/100 = 8% */}
-                    <div
-                      className="absolute top-0 bottom-0 w-0.5 bg-slate-500 z-10"
-                      title="Rejection threshold: std-dev < 8"
-                      style={{ left: "8%" }}
-                    />
-                  </div>
-
-                  <div className="flex justify-between text-[8px] font-semibold text-slate-400 mt-1">
-                    <span>Blank / uniform (σ 0)</span>
-                    <span className="text-slate-500">Min (σ 8)</span>
-                    <span>Rich structure (σ 100+)</span>
-                  </div>
-                </div>
-
-                <p className="text-[11px] text-slate-500 mt-4 leading-normal bg-white p-2.5 rounded-lg border border-slate-100">
-                  {telemetry.status !== "none"
-                    ? telemetry.contrastMessage
-                    : "Measures pixel intensity std-dev. Valid scans must score above σ 8.0 — blank images are rejected."}
-                </p>
-              </div>
-            </div>
-
-            {/* Soft System Details Banner */}
-            <div className="border-t border-slate-100 pt-3.5 flex justify-between items-center text-[10px] text-slate-400 font-medium">
-              <div>
-                Analysis Model:{" "}
-                <strong className="text-slate-600">
-                  {telemetry.engineUsed}
-                </strong>
-              </div>
-              <div>
-                Diagnostic Delay:{" "}
-                <strong className="text-slate-600">
-                  {telemetry.inferenceTime}
-                </strong>
-              </div>
-            </div>
-          </div>
-
           {/* Diagnostic Clinical Report (Modern Print/EHR look) */}
           <div className="clinical-card overflow-hidden flex flex-col flex-1">
             {/* Report Card Header */}
-            <div className="bg-slate-50 border-b border-slate-200 py-3.5 px-5 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider font-mono">
-                DRAFT CLINICAL FINDINGS
-              </span>
-
+            <div className="bg-slate-50 border-b border-slate-200 py-3.5 px-5 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider font-mono">
+                  DRAFT CLINICAL FINDINGS
+                </span>
+                {telemetry.status === "verified" && (
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                    Scan Verified
+                  </span>
+                )}
+                {telemetry.status === "rejected" && (
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-200 font-bold flex items-center gap-1 animate-pulse">
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                    Failed Integrity
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                {telemetry.status !== "none" && telemetry.engineUsed !== "N/A" && (
+                  <span className="text-[9px] text-slate-400 font-mono">
+                    Model: {telemetry.engineUsed}
+                  </span>
+                )}
                 {isProcessing ? (
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100 font-semibold flex items-center gap-1 animate-pulse">
                     <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
@@ -1005,7 +834,21 @@ export default function Workspace() {
             </div>
 
             {/* Diagnostic Document Sheet */}
-            <div className="bg-white p-8 flex-1 min-h-[360px] text-xs text-slate-800 leading-relaxed overflow-y-auto max-h-[460px] border-b border-slate-200">
+            <div className="bg-white p-8 flex-1 min-h-[320px] text-xs text-slate-800 leading-relaxed overflow-y-auto max-h-[460px] border-b border-slate-200">
+              {telemetry.status === "rejected" && (
+                <div className="mb-5 p-4 rounded-xl bg-red-50 border border-red-100 text-xs text-red-800">
+                  <div className="font-bold mb-1 flex items-center gap-1.5">
+                    <svg className="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Scan Verification Alert
+                  </div>
+                  <p className="text-[11px] leading-relaxed opacity-90">
+                    {telemetry.saturationMessage} {telemetry.contrastMessage}
+                  </p>
+                </div>
+              )}
+
               {isProcessing && !displayedReport ? (
                 // Processing Indicators
                 <div className="text-slate-400 flex flex-col gap-2 animate-pulse mt-4">
@@ -1049,7 +892,7 @@ export default function Workspace() {
                 </div>
               ) : (
                 // Empty report screen
-                <div className="flex flex-col items-center justify-center text-center h-full min-h-[300px] text-slate-400">
+                <div className="flex flex-col items-center justify-center text-center h-full min-h-[260px] text-slate-400">
                   <div className="p-3.5 rounded-full bg-slate-50 border border-slate-100 text-slate-300 mb-3.5">
                     <svg
                       className="w-8 h-8"
@@ -1109,7 +952,7 @@ export default function Workspace() {
 
           {/* Disease Classification Card */}
           {(displayedReport || isProcessing) && (
-            <div className="clinical-card p-6 bg-white shadow-xs rounded-xl border border-slate-200 transition-all duration-300">
+            <div className="clinical-card p-5 bg-white shadow-xs rounded-xl border border-slate-200 transition-all duration-300">
               <h2 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-3 mb-4 flex items-center justify-between">
                 <span>Disease Classifier Findings (High-Recall)</span>
                 <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold tracking-wide">
@@ -1162,7 +1005,7 @@ export default function Workspace() {
                 </span>
               </div>
 
-              <div className="p-6 bg-gradient-to-br from-blue-50/10 to-indigo-50/5 min-h-[140px] text-xs text-slate-700 leading-relaxed relative">
+              <div className="p-6 bg-gradient-to-br from-blue-50/10 to-indigo-50/5 min-h-[120px] text-xs text-slate-700 leading-relaxed relative">
                 {isProcessing && !displayedTranslation ? (
                   <div className="text-slate-400 flex flex-col gap-2 animate-pulse">
                     <p>&gt; Translating medical terminology to layperson terms...</p>
