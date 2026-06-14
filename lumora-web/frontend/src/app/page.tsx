@@ -593,7 +593,7 @@ export default function Workspace() {
                     : "text-slate-500 hover:text-slate-800"
                 } ${file ? "cursor-default" : "cursor-pointer"}`}
               >
-                CT NIfTI/DICOM
+                CT Scans
               </button>
             </div>
 
