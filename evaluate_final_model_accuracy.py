@@ -17,7 +17,7 @@ DEFAULT_XRAY_MODEL_PATH = Path("checkpoints/x_ray/mimic_vlm_phase2_fully_trained
 DEFAULT_XRAY_VALID_CSV = Path("mimic_cxr_aug_validate.csv")
 DEFAULT_XRAY_IMG_ROOT = Path("official_data_iccv_final")
 DEFAULT_CT_MODEL_PATH = Path("checkpoints/ct_rate/ct_rate_vlm_phase2_fully_trained.pt")
-DEFAULT_CT_DATA_DIR = Path("data/ct_rate")
+DEFAULT_CT_DATA_DIR = Path("ct_data")
 MAX_TEXT_LENGTH = 128
 
 
@@ -146,17 +146,17 @@ def build_xray_dataset(args, tokenizer):
 
 REPORT_CSV_CANDIDATES = {
     "train": [
+        "train_reports.csv",
         "dataset/radiology_text_reports/train_reports.csv",
         "radiology_text_reports/train_reports.csv",
-        "train_reports.csv",
     ],
     "valid": [
+        "validation_reports.csv",
+        "valid_reports.csv",
         "dataset/radiology_text_reports/validation_reports.csv",
         "dataset/radiology_text_reports/valid_reports.csv",
         "radiology_text_reports/validation_reports.csv",
         "radiology_text_reports/valid_reports.csv",
-        "validation_reports.csv",
-        "valid_reports.csv",
     ],
 }
 
@@ -236,13 +236,20 @@ def resolve_image_path(path_str, data_dir):
         return p
     parts = p.parts
     for i in range(len(parts)):
-        if parts[i] in ("images", "dataset", "data"):
+        if parts[i] in ("train", "valid", "val", "ct_data", "images", "dataset", "data"):
             sub_path = Path(*parts[i:])
-            if parts[i] == "data" and i + 1 < len(parts) and parts[i+1] == "ct_rate":
+            if parts[i] == "ct_data" and i + 1 < len(parts) and parts[i+1] in ("train", "valid", "val"):
+                sub_path = Path(*parts[i+1:])
+            elif parts[i] == "data" and i + 1 < len(parts) and parts[i+1] == "ct_rate":
                 sub_path = Path(*parts[i+2:])
             trial = data_dir / sub_path
             if trial.exists():
                 return trial
+    filename = p.name
+    for s in ("train", "valid", "val"):
+        trial = data_dir / s / filename
+        if trial.exists():
+            return trial
     return p
 
 def build_entries(data_dir, split, csv_path=None):
@@ -274,7 +281,8 @@ def build_entries(data_dir, split, csv_path=None):
                 png_name = png_name.removesuffix(".nii.gz") + ".png"
             elif not png_name.endswith(".png"):
                 png_name = png_name + ".png"
-            image_path = str(data_dir / "images" / split / png_name)
+            folder_name = "valid" if split in ("valid", "validation", "val") else split
+            image_path = str(data_dir / folder_name / png_name)
 
         resolved_p = resolve_image_path(image_path, data_dir)
         if resolved_p and resolved_p.exists():

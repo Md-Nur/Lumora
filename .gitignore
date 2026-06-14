@@ -1,4 +1,4 @@
-data/
+ct_data/
 .venv/
 official_data_iccv_final/
 .gradio/
