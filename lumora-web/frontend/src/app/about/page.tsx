@@ -154,7 +154,7 @@ export default function About() {
               Ready to analyze a study?
             </h2>
             <p className="mt-3 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              Upload a chest CT scan, chest X-ray, or medical report. Get structured summaries, pathology detections, and translation outputs in seconds.
+              Upload a chest CT scan or chest X-ray. Get structured summaries, pathology detections, and translation outputs in seconds.
             </p>
             <div className="mt-8 flex justify-center gap-3">
               <Link

@@ -17,6 +17,4 @@ dependencies = [
     "ultralytics>=8.4.62",
     "peft>=0.19.1",
     "accelerate>=1.14.0",
-    "pypdf>=6.13.2",
-    "python-docx>=1.2.0",
 ]

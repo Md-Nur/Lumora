@@ -33,7 +33,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "What file formats are supported?",
-    a: "CT: DICOM (.dcm), NIfTI (.nii), ZIP studies, PNG/JPG slices. X-ray: PNG, JPG. Reports: PDF, DOCX, TXT, scans.",
+    a: "CT: DICOM (.dcm), NIfTI (.nii), ZIP studies, or PNG/JPG slices. X-ray: PNG, JPG.",
   },
   {
     q: "How is my data handled?",

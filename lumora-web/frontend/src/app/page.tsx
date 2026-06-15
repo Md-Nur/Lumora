@@ -30,7 +30,7 @@ export default function Home() {
         </h1>
         
         <p className="mx-auto mt-6 max-w-xl text-base sm:text-lg text-muted-foreground leading-relaxed">
-          Upload a chest CT, X-ray, or medical report. Lumora flags signs of lung cancer, tuberculosis, and other conditions — with confidence scores you can trust.
+          Upload a chest CT or X-ray scan. Lumora flags signs of lung cancer, tuberculosis, and other conditions — with confidence scores you can trust.
         </p>
 
         <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -54,8 +54,8 @@ export default function Home() {
       </section>
 
       {/* Modality Summary Grid */}
-      <section className="mx-auto max-w-5xl px-6 py-12 w-full">
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+      <section className="mx-auto max-w-4xl px-6 py-12 w-full">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           {/* CT Scan Card */}
           <div className="group rounded-2xl border border-border/60 bg-card p-6 shadow-sm hover:shadow-md hover:border-border transition-all duration-200">
             <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary-deep">
@@ -79,19 +79,6 @@ export default function Home() {
             <h3 className="text-base font-semibold text-foreground">Chest X-Ray</h3>
             <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
               Drop a single PA or lateral view radiograph and get anatomical findings in seconds.
-            </p>
-          </div>
-
-          {/* Medical Report Card */}
-          <div className="group rounded-2xl border border-border/60 bg-card p-6 shadow-sm hover:shadow-md hover:border-border transition-all duration-200">
-            <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary-deep">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <h3 className="text-base font-semibold text-foreground">Medical Report</h3>
-            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-              Parse existing radiology or chest test reports for structured clinical insights.
             </p>
           </div>
         </div>
@@ -121,7 +108,7 @@ export default function Home() {
               <span className="text-4xl font-black text-primary/25 font-mono mb-3">01</span>
               <h3 className="text-lg font-bold text-foreground">Upload</h3>
               <p className="mt-2 text-sm text-muted-foreground leading-relaxed max-w-sm">
-                Pick CT, X-ray, or a report. Drag, drop, done.
+                Pick a CT scan or an X-ray. Drag, drop, done.
               </p>
             </div>
 

@@ -14,7 +14,7 @@ interface Telemetry {
   inferenceTime: string;
 }
 
-type Modality = "xray" | "ct" | "report";
+type Modality = "xray" | "ct";
 
 export default function Analyze() {
   const [file, setFile] = useState<File | null>(null);
@@ -45,7 +45,6 @@ export default function Analyze() {
 
   const invalidMessageForModality = (selectedModality: Modality) => {
     if (selectedModality === "ct") return "It is not a chest/lung CT scan.";
-    if (selectedModality === "report") return "The uploaded document is not a valid chest clinical report.";
     return "It is not a chest/lung X-ray image.";
   };
 
@@ -181,8 +180,6 @@ export default function Analyze() {
     let targetModality: Modality = "xray";
     if (["nii", "nii.gz", "dcm"].includes(ext)) {
       targetModality = "ct";
-    } else if (["txt", "pdf", "docx"].includes(ext)) {
-      targetModality = "report";
     }
 
     setModality(targetModality);
@@ -268,30 +265,11 @@ export default function Analyze() {
           contrastThreshold: 8.0,
           saturationMessage: "Diagnostic study verified. Confirmed monochrome radiograph.",
           contrastMessage: "Contrast levels standard. Clinical structures decoded successfully.",
-          engineUsed: modality === "ct" ? "Lumora CT-RATE VLM Assistant" : modality === "report" ? "Bio_ClinicalBERT Extractor" : "Lumora VLM Assistant",
+          engineUsed: modality === "ct" ? "Lumora CT-RATE VLM Assistant" : "Lumora VLM Assistant",
           inferenceTime: `${elapsedSeconds}s`,
         });
 
-        if (modality === "report") {
-          // Report mode simulation
-          if (isPathologicalCase) {
-            setReportText(
-              "EXAMINATION: Chest Radiograph clinical transcript parsed.\n\nFINDINGS:\nCardiac contours demonstrate mild dilatation. Bilateral vascular congestion. Small pleural fluid accumulation in the right costophrenic angle.\n\nIMPRESSION:\n1. Mild cardiomegaly and vascular congestion.\n2. Small right pleural effusion."
-            );
-            setDiseases(["Cardiomegaly", "Pulmonary Edema/Vascular Congestion", "Pleural Effusion"]);
-            setTranslationText(
-              "The document shows your heart is slightly enlarged. There is some fluid congestion in your lungs and a small amount of extra fluid around your right lung."
-            );
-          } else {
-            setReportText(
-              "EXAMINATION: Chest test transcript parsed.\n\nFINDINGS:\nLungs are clear. No consolidations, effusions, or masses. Cardiomediastinal contour is normal.\n\nIMPRESSION:\nNormal radiographic findings."
-            );
-            setDiseases(["No acute cardiopulmonary disease"]);
-            setTranslationText(
-              "No heart or lung problems were found in the uploaded text report. Your lungs are clear and heart contours are normal."
-            );
-          }
-        } else if (modality === "ct") {
+        if (modality === "ct") {
           // CT mode simulation
           if (isPathologicalCase) {
             setReportText(
@@ -338,7 +316,6 @@ export default function Analyze() {
       
       let endpoint = "/predict";
       if (modality === "ct") endpoint = "/predict/ct";
-      else if (modality === "report") endpoint = "/predict/report";
 
       try {
         const response = await fetch(`${backendUrl}${endpoint}`, {
@@ -360,7 +337,7 @@ export default function Analyze() {
             contrastThreshold: modality === "ct" ? 1.0 : 8.0,
             saturationMessage: data.telemetry || "Diagnostic study verified.",
             contrastMessage: `Contrast verified. Value: ${grayStd.toFixed(1)}`,
-            engineUsed: modality === "ct" ? "Lumora CT-RATE VLM Assistant" : modality === "report" ? "Bio_ClinicalBERT Extractor" : "Lumora VLM Assistant",
+            engineUsed: modality === "ct" ? "Lumora CT-RATE VLM Assistant" : "Lumora VLM Assistant",
             inferenceTime: "N/A",
           });
           setReportText(data.report);
@@ -460,9 +437,8 @@ export default function Analyze() {
           
           {/* INPUT SECTION (spans 5 columns when results exist) */}
           <div className={`${hasResults ? "lg:col-span-5" : "w-full"}`}>
-            
-            {/* Modality Selector Grid */}
-            <div className="grid gap-3 sm:grid-cols-3 mb-6">
+                        {/* Modality Selector Grid */}
+            <div className="grid gap-3 sm:grid-cols-2 mb-6">
               
               {/* CT Scan Tab */}
               <button
@@ -502,37 +478,12 @@ export default function Analyze() {
                 <div className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all ${
                   modality === "xray" ? "bg-primary text-primary-foreground" : "bg-surface text-primary-deep"
                 }`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
                     <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"></path>
                   </svg>
                 </div>
                 <h3 className="mt-4 font-semibold text-foreground">Chest X-Ray</h3>
                 <p className="mt-1 text-sm text-muted-foreground">Chest radiograph</p>
-              </button>
-
-              {/* Medical Report Tab */}
-              <button
-                onClick={() => handleModalityChange("report")}
-                disabled={isProcessing}
-                className={`flex flex-col items-start rounded-2xl border bg-card p-5 text-left transition-all cursor-pointer ${
-                  modality === "report"
-                    ? "border-primary ring-2 ring-primary/20"
-                    : "border-border hover:border-primary/40"
-                }`}
-              >
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all ${
-                  modality === "report" ? "bg-primary text-primary-foreground" : "bg-surface text-primary-deep"
-                }`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-                    <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path>
-                    <path d="M14 2v5a1 1 0 0 0 1 1h5"></path>
-                    <path d="M10 9H8"></path>
-                    <path d="M16 13H8"></path>
-                    <path d="M16 17H8"></path>
-                  </svg>
-                </div>
-                <h3 className="mt-4 font-semibold text-foreground">Medical Report</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Existing report or text</p>
               </button>
             </div>
 
@@ -556,8 +507,6 @@ export default function Analyze() {
                   accept={
                     modality === "ct"
                       ? ".nii,.nii.gz,.dcm,.zip"
-                      : modality === "report"
-                      ? ".txt,.pdf,.docx"
                       : ".png,.jpg,.jpeg"
                   }
                   className="hidden"
@@ -630,13 +579,11 @@ export default function Analyze() {
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     </svg>
                     <p className="mt-3 text-sm font-medium text-foreground">
-                      Drop your {modality === "ct" ? "CT scan" : modality === "report" ? "medical report" : "chest x-ray"} here, or click to browse
+                      Drop your {modality === "ct" ? "CT scan" : "chest X-ray"} here, or click to browse
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {modality === "ct"
                         ? "NIfTI (.nii, .nii.gz), DICOM (.dcm), or ZIP studies"
-                        : modality === "report"
-                        ? "TXT, PDF, or DOCX documents (max 10 MB)"
                         : "PNG or JPG image (max 20 MB)"}
                     </p>
                   </>
