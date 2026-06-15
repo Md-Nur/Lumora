@@ -248,31 +248,34 @@ All 26 labels used as multi-label output classes during ClinicalBERT training, w
 
 ## 📊 Comparison with Published Literature
 
-To evaluate the clinical efficacy and design scope of Lumora, we compare its pipeline and model coverage against two prominent published works focused on automated chest X-ray diagnosis.
+To evaluate the clinical efficacy and design scope of Lumora, we compare its pipeline and model coverage against both chest X-ray diagnosis papers and recent CT-focused multimodal medical AI papers from strong publication venues. This makes the comparison fairer because Lumora supports both CXR and thoracic CT workflows.
 
 ### 📋 Feature-by-Feature Comparison Matrix
 
-| Feature / Dimension | Paper 1: Alshmrani et al. (2023) [1] | Paper 2: Sharma & Guleria (2023) [2] | Lumora (Ours) |
-| :--- | :--- | :--- | :--- |
-| **Primary Base Model(s)** | VGG19 + 3 custom CNN blocks | VGG-16 + Neural Network classifier | **5-Model Pipeline**: YOLOv11s-cls + DenseNet121-GPT2 + Bio_ClinicalBERT + T5-small + LoRA |
-| **Supported Modalities** | Chest X-ray (CXR) only | Chest X-ray (CXR) only | **Multi-Modal**: Chest X-ray (CXR) AND Thoracic CT scans (2D axial slices) |
-| **Primary Task Scope** | Multi-class Classification | Binary Classification | **End-to-End Clinical Flow**: Guardrail → Report Gen → Label Extraction → Layperson Translation |
-| **Narrative Report Gen** | ❌ No (Outputs class labels only) | ❌ No (Outputs "Pneumonia" or "Normal") | ✅ **Yes** (Generates full, contextual English reports using visual embeddings) |
-| **Pathology Vocabulary** | 6 Classes (COVID-19, Normal, Pneumonia, Lung Opacity, TB, Cancer) | 2 Classes (Pneumonia vs. Normal) | ✅ **26 canonical pathologies** across both X-ray and CT modalities |
-| **Patient-Friendly Translation** | ❌ No | ❌ No | ✅ **Yes** (Rewrites complex clinical jargon using sequence-to-sequence T5 with LoRA adapters) |
-| **Safety Input Guardrails** | ❌ No (Assumes correct inputs) | ❌ No (Assumes correct inputs) | ✅ **Yes** (YOLOv11 guardrail checks modality and rejects non-medical images) |
+| Feature / Dimension | Paper 1: Alshmrani et al. (2023) [1] | Paper 2: Sharma & Guleria (2023) [2] | Paper 3: Hamamci et al. (2026) [3] | Paper 4: Zhang et al. (2025) [4] | Lumora (Ours) |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Publication Quality / Venue** | Alexandria Engineering Journal; Q1 engineering venue | Procedia Computer Science; indexed conference-proceedings venue | Nature Biomedical Engineering; Q1 biomedical engineering venue | Scientific Data; Q1 Nature Portfolio data journal | Academic research prototype with public model artifacts |
+| **Primary Base Model(s)** | VGG19 + 3 custom CNN blocks | VGG-16 + Neural Network classifier | CT-CLIP + CT-CHAT foundation models | RadGenome-Chest CT dataset + grounded VLM baselines | **5-Model Pipeline**: YOLOv11s-cls + DenseNet121-GPT2 + Bio_ClinicalBERT + T5-small + LoRA |
+| **Supported Modalities** | Chest X-ray (CXR) only | Chest X-ray (CXR) only | 3D chest CT volumes | 3D chest CT volumes with region-level grounding | **Multi-Modal**: Chest X-ray (CXR) AND Thoracic CT scans (2D axial slices) |
+| **Primary Task Scope** | Multi-class Classification | Binary Classification | CT abnormality detection, retrieval, and CT chat | Grounded CT report generation and CT visual question answering dataset | **End-to-End Clinical Flow**: Guardrail → Report Gen → Label Extraction → Layperson Translation |
+| **Narrative Report Gen** | ❌ No (Outputs class labels only) | ❌ No (Outputs "Pneumonia" or "Normal") | ✅ CT-CHAT supports CT-focused language interaction | ✅ Provides grounded CT report-generation supervision | ✅ **Yes** (Generates full, contextual English reports using visual embeddings) |
+| **Pathology Vocabulary** | 6 Classes (COVID-19, Normal, Pneumonia, Lung Opacity, TB, Cancer) | 2 Classes (Pneumonia vs. Normal) | 18 CT abnormality labels in CT-RATE plus report text | Region-grounded reports, VQA pairs, and anatomical segmentation labels | ✅ **26 canonical pathologies** across both X-ray and CT modalities |
+| **Patient-Friendly Translation** | ❌ No | ❌ No | ❌ No dedicated layperson translation module | ❌ No dedicated layperson translation module | ✅ **Yes** (Rewrites complex clinical jargon using sequence-to-sequence T5 with LoRA adapters) |
+| **Safety Input Guardrails** | ❌ No (Assumes correct inputs) | ❌ No (Assumes correct inputs) | ❌ Not a front-door modality guardrail | ❌ Dataset benchmark, not an input-screening pipeline | ✅ **Yes** (YOLOv11 guardrail checks modality and rejects non-medical images) |
 
 ### 🔍 Key Scientific & Clinical Advancements of Lumora
 
-1. **Unified Clinical Workflow Integration**: Rather than acting as a standalone classification silo (like VGG19/16 in the comparative studies), Lumora mirrors real-world radiological workflows. It validates the input (YOLO Guardrail), writes a narrative report (DenseNet-GPT2 VLM), identifies multiple clinical findings (ClinicalBERT), and translates these to layperson language (T5+LoRA) for direct patient use.
-2. **Cross-Modality Versatility**: While both comparative papers are strictly limited to 2D Chest X-rays, Lumora seamlessly supports both **Chest X-rays** (via MIMIC-CXR) and **Thoracic CT Scans** (via CT-RATE).
-3. **High-Granularity Disease Mapping**: Competing models collapse diagnosis into a single label or a binary decision. Lumora classifies **26 multi-label pathologies** concurrently, capturing co-occurring conditions (e.g., Pneumonia with Pleural Effusion and Atelectasis) that are common in critical clinical environments.
-4. **Patient-Centric Health Literacy**: Lumora is the only system among the compared literature that directly bridges the communication gap between clinical staff and patients by translating jargon (e.g., "retrocardiac opacity with consolidation") into readable lay terms.
+1. **Unified Clinical Workflow Integration**: Rather than acting as only a classifier or dataset benchmark, Lumora mirrors a practical radiology-support workflow. It validates the input (YOLO Guardrail), writes a narrative report (DenseNet-GPT2 VLM), identifies multiple clinical findings (ClinicalBERT), and translates these to layperson language (T5+LoRA) for direct patient use.
+2. **Cross-Modality Versatility**: The original CXR comparison papers are limited to chest radiographs, while newer CT papers focus deeply on 3D CT. Lumora sits between these lines of work by supporting both **Chest X-rays** (via MIMIC-CXR) and **Thoracic CT Scans** (via CT-RATE) in one application pipeline.
+3. **High-Granularity Disease Mapping**: Several comparator systems collapse diagnosis into a single label, binary output, or CT-specific benchmark task. Lumora classifies **26 multi-label pathologies** concurrently, capturing co-occurring conditions (e.g., Pneumonia with Pleural Effusion and Atelectasis) that are common in clinical environments.
+4. **Patient-Centric Health Literacy**: Lumora adds a patient-facing communication layer that the compared works do not include, translating jargon (e.g., "retrocardiac opacity with consolidation") into readable lay terms.
 
 ### 📚 References & Citations
 
 * **[1] Alshmrani, G. M. M., Ni, Q., Jiang, R., Pervaiz, H. B., & Elshennawy, N. M. (2023).** *A deep learning architecture for multi-class lung diseases classification using chest X-ray (CXR) images.* Alexandria Engineering Journal, 64, 923-935. [https://doi.org/10.1016/j.aej.2022.10.053](https://doi.org/10.1016/j.aej.2022.10.053)
 * **[2] Sharma, S., & Guleria, K. (2023).** *A Deep Learning based model for the Detection of Pneumonia from Chest X-Ray Images using VGG-16 and Neural Networks.* Procedia Computer Science, 218, 337-346. [https://doi.org/10.1016/j.procs.2023.01.018](https://doi.org/10.1016/j.procs.2023.01.018)
+* **[3] Hamamci, I. E., Er, S., Wang, C., et al. (2026).** *Generalist foundation models from a multimodal dataset for 3D computed tomography.* Nature Biomedical Engineering. [https://doi.org/10.1038/s41551-025-01599-y](https://doi.org/10.1038/s41551-025-01599-y)
+* **[4] Zhang, X., Wu, C., Zhao, Z., et al. (2025).** *Development of a large-scale grounded vision language dataset for chest CT analysis.* Scientific Data, 12, 1636. [https://doi.org/10.1038/s41597-025-05922-9](https://doi.org/10.1038/s41597-025-05922-9)
 
 ---
 
