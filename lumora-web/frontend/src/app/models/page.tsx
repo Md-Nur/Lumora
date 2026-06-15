@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Header from "@/components/Header";
 
 // ─── Model Specifications Data ───────────────────────────────────────────────
 const MODEL_SPECS = [
@@ -328,8 +327,7 @@ export default function ModelSpecifications() {
   const c = colorMap[model.color];
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#f8fafc] font-sans antialiased text-slate-800">
-      <Header activePage="/models" />
+    <div className="flex flex-col bg-[#f8fafc] font-sans antialiased text-slate-800">
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* Model Selector Cards */}
@@ -473,12 +471,6 @@ export default function ModelSpecifications() {
         </div>
       </main>
 
-      {/* Clean clinical footer */}
-      <footer className="border-t border-slate-200 bg-white py-5 mt-8 text-center text-[10px] font-medium tracking-wide text-slate-400 px-3">
-        <p>
-          LUMORA CLINICAL DECISION-SUPPORT SYSTEM — DESIGNED FOR LICENSED HEALTHCARE PROVIDERS
-        </p>
-      </footer>
     </div>
   );
 }

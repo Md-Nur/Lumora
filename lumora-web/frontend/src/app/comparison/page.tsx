@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Header from "@/components/Header";
 
 interface FeatureRow {
   name: string;
@@ -150,8 +149,7 @@ export default function LiteratureComparison() {
   const scenario = CASE_SIMULATOR_SCENARIOS.find(s => s.id === activeScenario) || CASE_SIMULATOR_SCENARIOS[0];
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#f8fafc] font-sans antialiased text-slate-800">
-      <Header activePage="/comparison" />
+    <div className="flex flex-col bg-[#f8fafc] font-sans antialiased text-slate-800">
 
       {/* Main Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-5 sm:space-y-8">
@@ -567,12 +565,6 @@ export default function LiteratureComparison() {
 
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-5 mt-8 text-center text-[10px] font-medium tracking-wide text-slate-400 px-3">
-        <p>
-          LUMORA CLINICAL DECISION-SUPPORT SYSTEM — DESIGNED FOR LICENSED HEALTHCARE PROVIDERS
-        </p>
-      </footer>
     </div>
   );
 }

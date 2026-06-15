@@ -12,10 +12,8 @@ interface HeaderProps {
 }
 
 const NAV_LINKS: { href: NavPage; label: string }[] = [
-  { href: "/", label: "Portal Home" },
-  { href: "/workspace", label: "Clinical Workspace" },
-  { href: "/models", label: "Model Specs" },
-  { href: "/comparison", label: "Benchmark" },
+  { href: "/", label: "Home" },
+  { href: "/workspace", label: "Analyze" },
 ];
 
 export default function Header({ activePage, backendStatus }: HeaderProps) {
@@ -38,30 +36,30 @@ export default function Header({ activePage, backendStatus }: HeaderProps) {
 
   return (
     <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-50 shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-center gap-8">
         {/* Logo */}
         <Link
           href="/"
-          className="flex items-center shrink-0 h-10"
+          className="flex items-center shrink-0 h-12"
           onClick={() => setMenuOpen(false)}
         >
           <img
             src="/logo.png"
             alt="Lumora Logo"
-            className="h-9 sm:h-10 w-auto object-contain hover:brightness-105 transition-all"
+            className="h-11 sm:h-12 w-auto object-contain hover:brightness-105 transition-all"
           />
         </Link>
 
         {/* Desktop Nav */}
-        <nav className="hidden sm:flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 border border-slate-200 flex-1 max-w-[480px] ml-2">
+        <nav className="hidden sm:flex items-center gap-6">
           {NAV_LINKS.map(({ href, label }) => (
             <Link
               key={href}
               href={href}
-              className={`flex-1 text-center px-2 py-1.5 rounded-md text-[11px] font-bold transition-all whitespace-nowrap ${
+              className={`px-3 py-2 rounded-md text-sm font-semibold transition-all whitespace-nowrap ${
                 activePage === href
-                  ? "bg-white text-blue-600 shadow-xs border border-blue-100"
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               {label}
@@ -69,8 +67,32 @@ export default function Header({ activePage, backendStatus }: HeaderProps) {
           ))}
         </nav>
 
-        {/* Right side: backend status (desktop) + hamburger */}
-        <div className="flex items-center gap-2 ml-auto shrink-0">
+        {/* Right side: action buttons + backend status (desktop) + hamburger */}
+        <div className="flex items-center gap-3 ml-auto shrink-0">
+          {/* Desktop Action Buttons */}
+          <div className="hidden sm:flex items-center gap-2">
+            <button
+              type="button"
+              className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+              onClick={() => {/* Placeholder for Sign in */}}
+            >
+              Sign in
+            </button>
+            {activePage === "/" && (
+              <button
+                type="button"
+                onClick={() => {
+                  const uploadSection = document.getElementById("upload-section");
+                  if (uploadSection) {
+                    uploadSection.scrollIntoView({ behavior: "smooth" });
+                  }
+                }}
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-all"
+              >
+                Try now
+              </button>
+            )}
+          </div>
           {/* Backend status — only shown on desktop in workspace */}
           {backendStatus && (
             <div className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium">
@@ -142,6 +164,32 @@ export default function Header({ activePage, backendStatus }: HeaderProps) {
               </Link>
             ))}
           </nav>
+
+          {/* Mobile Action Buttons */}
+          <div className="border-t border-slate-100 px-5 py-3 flex flex-col gap-2">
+            <button
+              type="button"
+              className="w-full px-4 py-2.5 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors border border-slate-200 rounded-lg"
+              onClick={() => {/* Placeholder for Sign in */; setMenuOpen(false)}}
+            >
+              Sign in
+            </button>
+            {activePage === "/" && (
+              <button
+                type="button"
+                onClick={() => {
+                  const uploadSection = document.getElementById("upload-section");
+                  if (uploadSection) {
+                    uploadSection.scrollIntoView({ behavior: "smooth" });
+                  }
+                  setMenuOpen(false);
+                }}
+                className="w-full px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-all"
+              >
+                Try now
+              </button>
+            )}
+          </div>
 
           {/* Backend status in mobile menu */}
           {backendStatus && (

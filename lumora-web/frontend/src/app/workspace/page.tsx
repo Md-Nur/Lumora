@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import Header from "@/components/Header";
 
 interface Telemetry {
   status: "verified" | "rejected" | "none";
@@ -26,7 +25,6 @@ export default function Workspace() {
   const [backendOnline, setBackendOnline] = useState<
     "checking" | "online" | "offline"
   >("checking");
-  const [isPreset, setIsPreset] = useState<boolean>(false);
 
   // Results
   const [reportText, setReportText] = useState<string>("");
@@ -188,7 +186,6 @@ export default function Workspace() {
       setFile(selectedFile);
       setModality(selectedModality);
       setPreviewUrl(selectedModality === "xray" ? URL.createObjectURL(selectedFile) : null);
-      setIsPreset(false); // Reset preset flag on manual upload
       setReportText("");
       setDisplayedReport("");
       setTranslationText("");
@@ -226,8 +223,8 @@ export default function Workspace() {
 
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || "http://localhost:8000";
 
-    // If it is an X-ray diagnostic preset OR backend server is offline, trigger high-fidelity simulation
-    if (modality === "xray" && (isPreset || backendOnline === "offline")) {
+    // If backend server is offline, trigger high-fidelity simulation
+    if (modality === "xray" && backendOnline === "offline") {
       const startTime = performance.now();
       await new Promise((resolve) => setTimeout(resolve, 1200));
       const endTime = performance.now();
@@ -399,7 +396,6 @@ export default function Workspace() {
     setFile(null);
     setPreviewUrl(null);
     setModality("xray");
-    setIsPreset(false);
     setReportText("");
     setDisplayedReport("");
     setTranslationText("");
@@ -416,35 +412,8 @@ export default function Workspace() {
     });
   };
 
-  // Preset cases
-  const loadPresetCase = (type: "normal" | "pathology" | "invalid") => {
-    handleReset();
-    setModality("xray");
-    let simulatedUrl = "";
-    let simulatedName = "";
-
-    if (type === "normal") {
-      simulatedUrl = "/sample_normal.jpg";
-      simulatedName = "normal_chest_frontal.jpg";
-    } else if (type === "pathology") {
-      simulatedUrl = "/sample_pathology.jpg";
-      simulatedName = "congestive_abnormal_chest.jpg";
-    } else {
-      simulatedUrl = "/sample_portrait.jpg";
-      simulatedName = "invalid_portrait_photo.jpg";
-    }
-
-    setPreviewUrl(simulatedUrl);
-    setIsPreset(true); // Flag this case as a preset simulation
-    const mockFile = new File(["mock_data"], simulatedName, {
-      type: "image/jpeg",
-    });
-    setFile(mockFile);
-  };
-
   return (
-    <div className="flex flex-col min-h-screen bg-[#f8fafc] font-sans antialiased text-slate-800">
-      <Header activePage="/workspace" backendStatus={backendOnline} />
+    <div className="flex flex-col bg-[#f8fafc] font-sans antialiased text-slate-800">
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
         {/* LEFT PANEL: Inputs, Upload, Presets (5 cols) */}
@@ -636,38 +605,6 @@ export default function Workspace() {
                 </div>
               )}
             </div>
-
-            {/* Compact Inline Presets */}
-            {modality === "xray" && !file && (
-              <div className="mt-3 sm:mt-4 border-t border-slate-100 pt-3">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 text-center">
-                  Test with presets:
-                </p>
-                <div className="flex gap-1.5 sm:gap-2 justify-center flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => loadPresetCase("normal")}
-                    className="px-2.5 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-[10px] transition-all cursor-pointer"
-                  >
-                    Clear Lungs
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => loadPresetCase("pathology")}
-                    className="px-2.5 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-[10px] transition-all cursor-pointer"
-                  >
-                    Congestion
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => loadPresetCase("invalid")}
-                    className="px-2.5 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-[10px] transition-all cursor-pointer"
-                  >
-                    Invalid Photo
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* Inferences Controls */}
             <div className="mt-4 sm:mt-5 flex flex-col min-[360px]:flex-row gap-2 sm:gap-3">
@@ -992,12 +929,6 @@ export default function Workspace() {
         </section>
       </main>
 
-      {/* Clean clinical footer */}
-      <footer className="border-t border-slate-200 bg-white py-5 mt-8 text-center text-[10px] font-medium tracking-wide text-slate-400 px-3">
-        <p>
-          LUMORA CLINICAL DECISION-SUPPORT SYSTEM — DESIGNED FOR LICENSED HEALTHCARE PROVIDERS
-        </p>
-      </footer>
     </div>
   );
 }

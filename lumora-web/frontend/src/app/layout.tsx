@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
@@ -28,8 +30,12 @@ export default function RootLayout({
       className={`${jakarta.variable} ${mono.variable}`}
       suppressHydrationWarning
     >
-      <body className="antialiased min-h-screen bg-[#f8fafc] text-slate-800 font-sans">
-        {children}
+      <body className="min-h-screen bg-[#f8fafc] font-sans text-slate-800 antialiased">
+        <div className="flex min-h-screen flex-col">
+          <Navbar />
+          <div className="flex-1">{children}</div>
+          <Footer />
+        </div>
       </body>
     </html>
   );
