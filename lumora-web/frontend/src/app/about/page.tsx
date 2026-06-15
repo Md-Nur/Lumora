@@ -127,7 +127,7 @@ export default function About() {
               Developed by University of Rajshahi
             </h2>
             <p className="mt-3 text-xs sm:text-sm text-slate-500 leading-relaxed">
-              Lumora was created as a research project by three students of the **Department of Electrical and Electronic Engineering (EEE)** at the **University of Rajshahi**:
+              Lumora was created as a research project by three students of the <strong>Department of Electrical and Electronic Engineering (EEE)</strong> at the <strong>University of Rajshahi</strong>:
             </p>
             
             {/* Student list */}
