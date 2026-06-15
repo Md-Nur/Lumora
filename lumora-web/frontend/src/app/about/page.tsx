@@ -3,171 +3,141 @@
 import React from "react";
 import Link from "next/link";
 
-const TECH_CARDS = [
+const TEAM_MEMBERS = [
   {
-    title: "Chest X-Ray VLM",
-    desc: "A multimodal encoder-decoder architecture mapping DenseNet-121 visual features to GPT-2 language space, generating comprehensive clinical findings.",
-    tag: "Radiology VLM",
-    image: "/xray_vlm_metrics.png",
-    caption: "Validation loss convergence and BLEU-4 score growth over fine-tuning epochs on the MIMIC-CXR dataset.",
+    name: "Md. Nur E Alam Siddiquee",
+    role: "Co-Developer & Researcher",
+    dept: "Electrical and Electronic Engineering (EEE)",
+    univ: "University of Rajshahi",
+    initials: "NS",
+    gradient: "from-blue-600 to-cyan-500",
   },
   {
-    title: "CT-RATE Volumetric Model",
-    desc: "Processes 3D volumetric chest CT scans via axial, coronal, and sagittal projections to detect abnormalities and output detailed anatomical summaries.",
-    tag: "Volumetric VLM",
-    image: "/ct_vlm_metrics.png",
-    caption: "CT-RATE training convergence showing loss optimization and metrics improvement during local phase 2 runs.",
+    name: "Mozammel Haque",
+    role: "Co-Developer & Researcher",
+    dept: "Electrical and Electronic Engineering (EEE)",
+    univ: "University of Rajshahi",
+    initials: "MH",
+    gradient: "from-indigo-600 to-blue-500",
   },
   {
-    title: "Layperson Translation",
-    desc: "A fine-tuned T5-small adapter that processes medical report text and output descriptions to translate clinical jargon into clear, layperson terms.",
-    tag: "T5 Adapter",
-    image: "/translation_metrics.png",
-    caption: "BLEU and ROUGE translation metric improvements on the medical-to-layman parallel corpus.",
-  },
-  {
-    title: "Disease Classifier",
-    desc: "A high-recall Bio_ClinicalBERT classifier trained on clinical report transcripts to detect 26 canonical chest/lung pathologies.",
-    tag: "Pathology Detection",
-    image: "/disease_detection_metrics.png",
-    caption: "ROC curves showing Area Under ROC (AUROC) performance across multiple multi-label disease targets.",
-  },
-  {
-    title: "YOLO Modality Guardrail",
-    desc: "A fast, light YOLO-based image classification module that verifies scan integrity, filtering out invalid or non-diagnostic visuals.",
-    tag: "Physics Guardrail",
-    image: "/yolo_guardrail_metrics.png",
-    caption: "Confusion matrix showing near-perfect separation between chest X-rays, CT slices, and blank or natural images.",
+    name: "Pranto Protim Dutta",
+    role: "Co-Developer & Researcher",
+    dept: "Electrical and Electronic Engineering (EEE)",
+    univ: "University of Rajshahi",
+    initials: "PD",
+    gradient: "from-purple-600 to-indigo-500",
   },
 ];
 
 export default function About() {
   return (
     <div className="flex flex-col bg-background min-h-screen">
-      <main className="mx-auto max-w-6xl px-6 py-20 w-full">
+      <main className="mx-auto max-w-5xl px-6 py-20 w-full">
         {/* Hero Section */}
-        <div className="text-center sm:text-left mb-16">
+        <div className="text-center md:text-left mb-16">
           <p className="text-xs uppercase tracking-[0.2em] text-primary-deep font-semibold">
-            About Lumora
+            Our Story
           </p>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl text-foreground">
-            Clear medical insights for everyone.
+            Meet the team behind Lumora.
           </h1>
           <p className="mt-4 max-w-2xl text-muted-foreground leading-relaxed">
-            Lumora is an advanced AI radiology partner designed to generate clinical report summaries, detect pathologies, and translate complex medical jargon into friendly, accessible descriptions.
+            This project is created by three passionate engineering students from the University of Rajshahi. We aim to combine advanced artificial intelligence with intuitive design to make medical scans easier to read.
           </p>
         </div>
 
-        {/* Mission / Context Section */}
-        <section className="grid gap-12 sm:grid-cols-1 md:grid-cols-2 border-t border-border/60 py-12">
+        {/* Team Grid */}
+        <section className="grid gap-6 sm:grid-cols-1 md:grid-cols-3 border-t border-border/60 py-16">
+          {TEAM_MEMBERS.map((member, idx) => (
+            <div
+              key={idx}
+              className="group flex flex-col items-center text-center p-8 rounded-3xl border border-border bg-card shadow-xs hover:shadow-md hover:border-primary/40 transition-all duration-300"
+            >
+              {/* Initials Avatar */}
+              <div className={`flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br ${member.gradient} text-white font-bold text-lg shadow-sm group-hover:scale-105 transition-transform duration-300 mb-6`}>
+                {member.initials}
+              </div>
+              
+              <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors">
+                {member.name}
+              </h3>
+              
+              <p className="text-xs text-primary-deep font-semibold mt-1">
+                {member.role}
+              </p>
+
+              <div className="mt-6 border-t border-border/50 pt-4 w-full text-xs text-muted-foreground leading-relaxed">
+                <p className="font-medium text-slate-600">{member.dept}</p>
+                <p className="mt-0.5">{member.univ}</p>
+              </div>
+            </div>
+          ))}
+        </section>
+
+        {/* Institution Context */}
+        <section className="grid gap-12 sm:grid-cols-1 md:grid-cols-2 border-t border-border/60 py-16">
           <div>
-            <h2 className="text-xl font-semibold text-foreground">Our Mission</h2>
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">
+              University of Rajshahi
+            </h2>
+            <p className="text-xs text-primary-deep uppercase tracking-widest font-semibold mt-1">
+              EEE Department
+            </p>
             <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-              Medical reports and radiology scans are highly technical documents filled with clinical jargon. This creates a significant gap of understanding for patients trying to review their own health files.
+              Electrical and Electronic Engineering (EEE) provides the foundational pillars for signal processing, medical instrumentation, and computational intelligence. 
             </p>
             <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-              Lumora bridges this gap. By using state-of-the-art vision-language models alongside dedicated disease classification and translation adapters, Lumora translates visual diagnostic scans and clinical report transcripts into structured, patient-friendly information.
+              Combining our engineering curriculum with modern deep learning frameworks has allowed us to tackle challenges in computational medicine and clinical translation.
             </p>
           </div>
-          <div className="bg-card rounded-2xl border border-border p-6 sm:p-8 flex flex-col justify-center">
-            <h3 className="text-base font-semibold text-foreground mb-3">Core Commitments</h3>
-            <ul className="space-y-3 text-sm text-muted-foreground">
-              <li className="flex items-start gap-2.5">
-                <svg className="h-5 w-5 text-primary shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                <span><strong>Explainability:</strong> Giving patients a clear understanding of clinical terms.</span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <svg className="h-5 w-5 text-primary shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                <span><strong>High Recall:</strong> Sensitive guardrails to make sure potential conditions are flagged.</span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <svg className="h-5 w-5 text-primary shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                <span><strong>Privacy-first:</strong> In-session analysis with zero persistent cloud image storage.</span>
-              </li>
-            </ul>
+          <div className="bg-card rounded-3xl border border-border p-8 flex flex-col justify-center">
+            <h3 className="text-lg font-bold text-foreground mb-4">Academic Focus</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Our research is supported by the academic excellence of the University of Rajshahi, one of the premier public research universities in Bangladesh. The EEE department fosters innovation in hardware design, machine learning, and biometric diagnostics.
+            </p>
           </div>
         </section>
 
-        {/* Model Metrics & Tech Section */}
-        <section className="mt-12 border-t border-border/60 pt-16">
-          <div className="text-center md:text-left mb-10">
-            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
-              Core Technologies & Verification Metrics
+        {/* Future Vision Section */}
+        <section className="border-t border-border/60 py-16">
+          <div className="max-w-3xl">
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">
+              Our Future Plan: Clinical Software Integration
             </h2>
-            <p className="mt-2 text-sm text-muted-foreground max-w-xl">
-              We validate our neural networks against standard medical datasets and radiologists' ground truths. Here is a look at the training metrics and pipeline performance charts.
+            <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
+              Lumora was designed not just as a standalone research web application, but as a framework capable of embedding directly within real-world clinical systems.
             </p>
-          </div>
-
-          {/* Metrics Grid */}
-          <div className="grid gap-8 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-            {TECH_CARDS.map((card, idx) => (
-              <div
-                key={idx}
-                className="group flex flex-col rounded-3xl border border-border bg-card overflow-hidden hover:shadow-lg hover:border-primary/45 transition-all duration-300"
-              >
-                {/* Header Tag / Title */}
-                <div className="p-6 pb-4 flex-1">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary-deep mb-3">
-                    {card.tag}
-                  </span>
-                  <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors">
-                    {card.title}
-                  </h3>
-                  <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-                    {card.desc}
-                  </p>
-                </div>
-
-                {/* Graphic Chart representation */}
-                <div className="bg-slate-900 border-t border-border aspect-[4/3] relative flex items-center justify-center overflow-hidden p-2">
-                  <img
-                    src={card.image}
-                    alt={`${card.title} Metrics`}
-                    className="max-w-full max-h-full object-contain group-hover:scale-102 transition-transform duration-300"
-                    loading="lazy"
-                  />
-                </div>
-
-                {/* Caption Description */}
-                <div className="p-4 bg-muted/30 border-t border-border text-[11px] text-muted-foreground leading-normal italic">
-                  {card.caption}
-                </div>
-              </div>
-            ))}
+            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+              Our ultimate objective is to integrate this AI assistant directly into actual physical X-ray machines and CT scanner software suites. By embedding our diagnostic classifiers, modality guardrails, and patient-friendly translation models into PACS (Picture Archiving and Communication Systems) and scanner console computers, we hope to provide instant, real-time diagnostic decision support at the point of care in hospitals.
+            </p>
           </div>
         </section>
 
         {/* CTA section */}
-        <section className="mt-20 relative overflow-hidden rounded-3xl bg-surface border border-border px-6 py-16 text-center sm:px-16 sm:py-20 shadow-sm">
+        <section className="mt-8 relative overflow-hidden rounded-3xl bg-surface border border-border px-6 py-16 text-center sm:px-16 sm:py-20 shadow-sm">
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0">
             <div className="h-64 w-64 rounded-full bg-primary/5 blur-3xl"></div>
           </div>
           <div className="relative z-10 mx-auto max-w-md">
             <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Ready to analyze a study?
+              Explore Lumora
             </h2>
             <p className="mt-3 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              Upload a chest CT scan or chest X-ray. Get structured summaries, pathology detections, and translation outputs in seconds.
+              Try analyzing a study using one of our sample scans or upload your own diagnostic image.
             </p>
             <div className="mt-8 flex justify-center gap-3">
               <Link
                 href="/analyze"
                 className="inline-flex items-center justify-center rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground shadow-md hover:bg-primary/95 transition-all duration-200 cursor-pointer"
               >
-                Get Started
+                Go to Workspace
               </Link>
               <Link
                 href="/how-it-works"
                 className="inline-flex items-center justify-center rounded-full border border-border bg-background px-6 py-3 text-sm font-semibold text-foreground hover:bg-muted/50 transition-all duration-200 cursor-pointer"
               >
-                How it works
+                Learn More
               </Link>
             </div>
           </div>
