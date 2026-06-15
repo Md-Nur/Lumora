@@ -22,10 +22,12 @@ export default function Analyze() {
   const [modality, setModality] = useState<Modality>("xray");
   const [isDragActive, setIsDragActive] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [processingStep, setProcessingStep] = useState<number>(0);
   const [consentChecked, setConsentChecked] = useState<boolean>(false);
   const [backendOnline, setBackendOnline] = useState<
     "checking" | "online" | "offline"
   >("checking");
+  const [currentDate, setCurrentDate] = useState<string>("");
 
   // Results
   const [reportText, setReportText] = useState<string>("");
@@ -43,6 +45,23 @@ export default function Analyze() {
     inferenceTime: "N/A",
   });
 
+  const typewriterIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const translationTypewriterRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Set formatted current date on mount
+  useEffect(() => {
+    setCurrentDate(
+      new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    );
+  }, []);
+
   const invalidMessageForModality = (selectedModality: Modality) => {
     if (selectedModality === "ct") return "It is not a chest/lung CT scan.";
     return "It is not a chest/lung X-ray image.";
@@ -54,10 +73,6 @@ export default function Analyze() {
     }
     return backendReport;
   };
-
-  const typewriterIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const translationTypewriterRef = useRef<NodeJS.Timeout | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getFileExtension = (name: string) => {
     const lowerName = name.toLowerCase();
@@ -192,6 +207,7 @@ export default function Analyze() {
     setTranslationText("");
     setDisplayedTranslation("");
     setDiseases([]);
+    setProcessingStep(0);
     setTelemetry({
       status: "none",
       meanSaturation: 0.0,
@@ -201,6 +217,42 @@ export default function Analyze() {
       engineUsed: "N/A",
       inferenceTime: "N/A",
     });
+  };
+
+  // Helper to load sample files
+  const loadSampleFile = async (url: string, filename: string, targetModality: Modality) => {
+    // Reset
+    handleReset();
+    setIsProcessing(true);
+    
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Failed to load sample asset");
+      const blob = await response.blob();
+      const sampleFile = new File([blob], filename, { type: blob.type || "image/jpeg" });
+      
+      setModality(targetModality);
+      setFile(sampleFile);
+      setPreviewUrl(targetModality === "xray" ? url : null);
+      setConsentChecked(true); // Automatically accept consent for quick sample tries
+    } catch (err) {
+      console.error("Error loading sample file:", err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const loadMockCTSample = () => {
+    handleReset();
+    
+    // Create a mock binary volume
+    const content = new TextEncoder().encode("Mock NIfTI CT scan volume binary stream");
+    const sampleFile = new File([content], "sample_ct_pathology.nii.gz", { type: "application/gzip" });
+    
+    setModality("ct");
+    setFile(sampleFile);
+    setPreviewUrl(null);
+    setConsentChecked(true);
   };
 
   const handleModalityChange = (targetModality: Modality) => {
@@ -221,14 +273,25 @@ export default function Analyze() {
     setDisplayedTranslation("");
     setDiseases([]);
 
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || "http://localhost:8000";
 
     // Offline simulation mode
     if (backendOnline === "offline") {
       const startTime = performance.now();
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      
+      // Animation Stepper
+      setProcessingStep(1); // Ingestion
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      
+      setProcessingStep(2); // Guardrail
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      
+      setProcessingStep(3); // Feature extraction
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      
+      setProcessingStep(4); // Formatting
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      
       const endTime = performance.now();
       const elapsedSeconds = ((endTime - startTime) / 1000).toFixed(2);
 
@@ -241,11 +304,11 @@ export default function Analyze() {
           status: "rejected",
           meanSaturation: modality === "xray" ? 0.38 : 0.0,
           saturationThreshold: 0.15,
-          grayStd: modality === "xray" ? 74.2 : 0.0,
+          grayStd: modality === "xray" ? 4.2 : 0.0,
           contrastThreshold: 8.0,
           saturationMessage: "Guardrail validation alert: Input does not appear to contain diagnostic structures.",
           contrastMessage: "Pixel distributions failed clinical chest projection thresholds.",
-          engineUsed: "Clinical Physics Guardrail",
+          engineUsed: "Clinical Physics Guardrail v1.4",
           inferenceTime: `${elapsedSeconds}s`,
         });
         setReportText(invalidMessageForModality(modality));
@@ -318,10 +381,20 @@ export default function Analyze() {
       if (modality === "ct") endpoint = "/predict/ct";
 
       try {
+        setProcessingStep(1); // Ingestion
+        
+        // Add artificial delay for interactive feel
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        setProcessingStep(2); // Guardrail
+        
         const response = await fetch(`${backendUrl}${endpoint}`, {
           method: "POST",
           body: formData,
         });
+
+        setProcessingStep(3); // Feature processing
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        setProcessingStep(4); // Synthesis
 
         const data = await response.json();
 
@@ -338,7 +411,7 @@ export default function Analyze() {
             saturationMessage: data.telemetry || "Diagnostic study verified.",
             contrastMessage: `Contrast verified. Value: ${grayStd.toFixed(1)}`,
             engineUsed: modality === "ct" ? "Lumora CT-RATE VLM Assistant" : "Lumora VLM Assistant",
-            inferenceTime: "N/A",
+            inferenceTime: "Dynamic Node",
           });
           setReportText(data.report);
           setTranslationText(data.translation || "");
@@ -356,7 +429,7 @@ export default function Analyze() {
             saturationMessage: data.telemetry || "API validation error.",
             contrastMessage: "Pixel distribution failed guardrail validation.",
             engineUsed: modality === "ct" ? "CT Input Validator" : "Clinical Physics Guardrail",
-            inferenceTime: "N/A",
+            inferenceTime: "Dynamic Node",
           });
           setReportText(resolveInvalidScanMessage(modality, data.report));
           setTranslationText("");
@@ -387,6 +460,7 @@ export default function Analyze() {
     }
 
     setIsProcessing(false);
+    setProcessingStep(0);
   };
 
   // Reset
@@ -399,6 +473,7 @@ export default function Analyze() {
     setDisplayedTranslation("");
     setDiseases([]);
     setConsentChecked(false);
+    setProcessingStep(0);
     setTelemetry({
       status: "none",
       meanSaturation: 0.0,
@@ -414,397 +489,740 @@ export default function Analyze() {
 
   return (
     <div className="flex flex-col bg-background min-h-screen">
-      <main className={`mx-auto w-full px-6 py-16 transition-all duration-300 ${
-        hasResults ? "max-w-7xl" : "max-w-4xl"
-      }`}>
-        {/* Page Heading (matches reference) */}
-        {!hasResults && (
-          <div className="text-center mb-10">
-            <p className="text-xs uppercase tracking-[0.2em] text-primary-deep">
-              Analyzer
-            </p>
-            <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl text-foreground">
-              Pick what you&apos;d like to read.
-            </h1>
-            <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
-              Choose an input type, drop your file, and Lumora will return predicted findings.
-            </p>
+      <main className="mx-auto w-full max-w-7xl px-4 sm:px-6 py-10 transition-all duration-300">
+        
+        {/* Page Heading */}
+        <div className="text-center mb-10 max-w-2xl mx-auto">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[10px] font-bold text-primary-deep tracking-wider uppercase mb-3">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary-deep animate-pulse"></span>
+            DIAGNOSTIC WORKSTATION
           </div>
-        )}
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground font-sans">
+            AI Scan Intelligence
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Feed medical scans into the Lumora neural pipeline. View diagnostic report drafts, confidence telemetry, and clear descriptions in one place.
+          </p>
+        </div>
 
-        {/* Dynamic Split Layout: grid-cols-1 or grid-cols-12 */}
-        <div className={`grid gap-6 ${hasResults ? "grid-cols-1 lg:grid-cols-12" : "grid-cols-1"}`}>
+        {/* Workspace Layout Grid */}
+        <div className="grid gap-8 grid-cols-1 lg:grid-cols-12">
           
-          {/* INPUT SECTION (spans 5 columns when results exist) */}
-          <div className={`${hasResults ? "lg:col-span-5" : "w-full"}`}>
-                        {/* Modality Selector Grid */}
-            <div className="grid gap-3 sm:grid-cols-2 mb-6">
+          {/* LEFT COLUMN: CONTROL & WORKSTATION INPUT (Spans 5 on lg) */}
+          <div className="lg:col-span-5 flex flex-col gap-6">
+            
+            {/* Console Settings Box */}
+            <div className="rounded-2xl border border-border/80 bg-white shadow-xs p-5 flex flex-col gap-4">
               
-              {/* CT Scan Tab */}
-              <button
-                onClick={() => handleModalityChange("ct")}
-                disabled={isProcessing}
-                className={`flex flex-col items-start rounded-2xl border bg-card p-5 text-left transition-all cursor-pointer ${
-                  modality === "ct"
-                    ? "border-primary ring-2 ring-primary/20"
-                    : "border-border hover:border-primary/40"
-                }`}
-              >
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all ${
-                  modality === "ct" ? "bg-primary text-primary-foreground" : "bg-surface text-primary-deep"
-                }`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-                    <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
-                    <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
-                    <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
-                    <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
-                    <path d="M7 12h10"></path>
+              <div className="flex items-center justify-between border-b border-border/50 pb-3">
+                <span className="text-xs font-bold text-slate-800 tracking-wider uppercase font-mono flex items-center gap-2">
+                  <svg className="w-4 h-4 text-primary-deep" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                   </svg>
+                  Console Panel
+                </span>
+                
+                {/* Online Status Flag */}
+                <div className="flex items-center gap-1.5">
+                  <span className={`h-2 w-2 rounded-full ${
+                    backendOnline === "online" ? "bg-emerald-500 animate-pulse" : 
+                    backendOnline === "offline" ? "bg-amber-400" : "bg-slate-300 animate-ping"
+                  }`} />
+                  <span className="text-[10px] font-bold font-mono text-muted-foreground uppercase">
+                    {backendOnline === "online" ? "API Host Connected" : 
+                     backendOnline === "offline" ? "Simulation Active" : "Connecting..."}
+                  </span>
                 </div>
-                <h3 className="mt-4 font-semibold text-foreground">CT Scan</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Volumetric chest CT</p>
-              </button>
-
-              {/* Chest X-Ray Tab */}
-              <button
-                onClick={() => handleModalityChange("xray")}
-                disabled={isProcessing}
-                className={`flex flex-col items-start rounded-2xl border bg-card p-5 text-left transition-all cursor-pointer ${
-                  modality === "xray"
-                    ? "border-primary ring-2 ring-primary/20"
-                    : "border-border hover:border-primary/40"
-                }`}
-              >
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all ${
-                  modality === "xray" ? "bg-primary text-primary-foreground" : "bg-surface text-primary-deep"
-                }`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-                    <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"></path>
-                  </svg>
-                </div>
-                <h3 className="mt-4 font-semibold text-foreground">Chest X-Ray</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Chest radiograph</p>
-              </button>
-            </div>
-
-            {/* Upload Area Card Container (matches reference) */}
-            <div className="rounded-3xl border border-border bg-card p-5 sm:p-7 shadow-sm">
-              <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={() => !file && fileInputRef.current?.click()}
-                className={`relative overflow-hidden rounded-2xl border-2 border-dashed flex flex-col items-center justify-center px-6 py-12 text-center transition-colors ${
-                  file
-                    ? "border-border bg-surface/20"
-                    : "border-border bg-surface/40 hover:border-primary/50 cursor-pointer"
-                } ${isDragActive ? "border-primary bg-primary/5" : ""}`}
-              >
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  accept={
-                    modality === "ct"
-                      ? ".nii,.nii.gz,.dcm,.zip"
-                      : ".png,.jpg,.jpeg"
-                  }
-                  className="hidden"
-                />
-
-                {previewUrl ? (
-                  // Preview state for X-Ray
-                  <div className="relative w-full aspect-square max-w-[240px] bg-slate-900 rounded-xl overflow-hidden shadow-sm flex items-center justify-center border border-border">
-                    {isProcessing && <div className="medical-scanner-line" />}
-                    <img
-                      src={previewUrl}
-                      alt="Scan Preview"
-                      className="max-w-full max-h-full object-contain filter brightness-95"
-                    />
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleReset();
-                      }}
-                      className="absolute top-2 right-2 p-1.5 rounded-full bg-white/90 border border-border text-slate-500 hover:text-red-600 shadow-sm transition-all z-20 cursor-pointer"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ) : file ? (
-                  // File details state for CT / Report
-                  <div className="relative w-full max-w-[280px] rounded-xl bg-background border border-border p-4 text-center">
-                    {isProcessing && <div className="medical-scanner-line" />}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleReset();
-                      }}
-                      className="absolute top-2 right-2 p-1.5 rounded-full bg-background border border-border text-slate-500 hover:text-red-600 shadow-sm transition-all z-20 cursor-pointer"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                    
-                    <div className="mx-auto h-12 w-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-3">
-                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    <p className="text-sm font-semibold text-foreground break-all">{file.name}</p>
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      {modality === "ct" ? "Volumetric CT Scan File" : "Clinical Document"}
-                    </p>
-                  </div>
-                ) : (
-                  // Standard Drag-and-Drop display
-                  <>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-8 w-8 text-primary-deep"
-                    >
-                      <path d="M12 3v12"></path>
-                      <path d="m17 8-5-5-5 5"></path>
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    </svg>
-                    <p className="mt-3 text-sm font-medium text-foreground">
-                      Drop your {modality === "ct" ? "CT scan" : "chest X-ray"} here, or click to browse
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {modality === "ct"
-                        ? "NIfTI (.nii, .nii.gz), DICOM (.dcm), or ZIP studies"
-                        : "PNG or JPG image (max 20 MB)"}
-                    </p>
-                  </>
-                )}
               </div>
 
+              {/* Modality Selector Buttons */}
+              <div className="flex flex-col gap-2">
+                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider font-mono">
+                  Select Modality
+                </label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  
+                  {/* X-Ray Modality */}
+                  <button
+                    onClick={() => handleModalityChange("xray")}
+                    disabled={isProcessing}
+                    className={`flex items-center justify-center gap-2 rounded-xl border py-3 px-4 transition-all duration-200 cursor-pointer ${
+                      modality === "xray"
+                        ? "border-primary-deep bg-primary/5 text-primary-deep font-bold ring-2 ring-primary/10"
+                        : "border-border bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-xs">Chest X-Ray</span>
+                  </button>
 
+                  {/* CT Modality */}
+                  <button
+                    onClick={() => handleModalityChange("ct")}
+                    disabled={isProcessing}
+                    className={`flex items-center justify-center gap-2 rounded-xl border py-3 px-4 transition-all duration-200 cursor-pointer ${
+                      modality === "ct"
+                        ? "border-primary-deep bg-primary/5 text-primary-deep font-bold ring-2 ring-primary/10"
+                        : "border-border bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5A3.375 3.375 0 0010.125 2.25H8.25m0 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                    </svg>
+                    <span className="text-xs">CT Volume</span>
+                  </button>
 
-              {/* Consent check (matches reference) */}
-              <div className="mt-6 flex items-start gap-3 rounded-xl bg-surface/30 p-4 text-sm">
+                </div>
+              </div>
+
+              {/* Upload Target Area */}
+              <div className="flex flex-col gap-2">
+                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider font-mono">
+                  Diagnostics Input
+                </label>
+                
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => !file && fileInputRef.current?.click()}
+                  className={`relative overflow-hidden rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-6 text-center transition-all duration-300 min-h-[260px] ${
+                    file
+                      ? "border-slate-300 bg-slate-900"
+                      : "border-slate-200 bg-slate-50 hover:border-primary-deep/50 hover:bg-slate-50/50 cursor-pointer"
+                  } ${isDragActive ? "border-primary bg-primary/5 shadow-inner" : ""}`}
+                >
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept={
+                      modality === "ct"
+                        ? ".nii,.nii.gz,.dcm,.zip"
+                        : ".png,.jpg,.jpeg"
+                    }
+                    className="hidden"
+                  />
+
+                  {previewUrl ? (
+                    /* X-Ray Preview with HUD overlay */
+                    <div className="relative w-full max-w-[240px] aspect-square rounded-lg overflow-hidden flex items-center justify-center border border-slate-700 bg-black/80 group">
+                      
+                      {/* Scanner light line */}
+                      {isProcessing && <div className="medical-scanner-line" />}
+                      
+                      {/* Image under scanner */}
+                      <img
+                        src={previewUrl}
+                        alt="Radiograph Scan"
+                        className="max-w-full max-h-full object-contain filter contrast-125 brightness-90 grayscale opacity-80"
+                      />
+
+                      {/* HUD Overlays */}
+                      <div className="absolute top-2 left-2 text-[10px] font-mono text-cyan-400 font-bold bg-black/60 px-1 py-0.5 rounded-sm select-none">
+                        [R]
+                      </div>
+                      <div className="absolute top-2 right-2 text-[10px] font-mono text-cyan-400 font-bold bg-black/60 px-1 py-0.5 rounded-sm select-none">
+                        [L]
+                      </div>
+                      <div className="absolute bottom-2 left-2 text-[9px] font-mono text-slate-400 bg-black/60 px-1.5 py-0.5 rounded-sm select-none">
+                        ANT.
+                      </div>
+                      
+                      {/* Target Crosshair */}
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30">
+                        <div className="w-8 h-8 border border-dashed border-cyan-400 rounded-full flex items-center justify-center">
+                          <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full" />
+                        </div>
+                        <div className="absolute w-12 h-[1px] bg-cyan-400" />
+                        <div className="absolute h-12 w-[1px] bg-cyan-400" />
+                      </div>
+
+                      {/* Hover action bar overlay */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleReset();
+                        }}
+                        className="absolute bottom-2 right-2 p-1.5 rounded-full bg-red-600 border border-red-500 text-white hover:scale-105 shadow-md transition-all z-20 cursor-pointer"
+                        title="Remove Scan"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  ) : file ? (
+                    /* CT file display card */
+                    <div className="relative w-full max-w-[280px] rounded-xl bg-slate-900 border border-slate-700 p-5 text-center flex flex-col items-center">
+                      
+                      {/* Scanner light line */}
+                      {isProcessing && <div className="medical-scanner-line" />}
+                      
+                      <div className="h-14 w-14 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center mb-4 border border-cyan-500/20">
+                        <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5A3.375 3.375 0 0010.125 2.25H8.25m0 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                        </svg>
+                      </div>
+                      <p className="text-sm font-semibold text-white truncate max-w-full px-2">{file.name}</p>
+                      <p className="text-[10px] text-cyan-400 uppercase tracking-widest font-mono mt-1">
+                        VOLUMETRIC CT SCAN STUDY
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-2">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleReset();
+                        }}
+                        className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-slate-800 text-slate-400 hover:text-red-400 hover:bg-slate-750 transition-all z-20 cursor-pointer"
+                        title="Remove Scan"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ) : (
+                    /* Blank Dropzone interface */
+                    <div className="flex flex-col items-center justify-center py-4">
+                      <div className="h-14 w-14 rounded-2xl bg-primary/10 text-primary-deep flex items-center justify-center mb-4 transition-transform group-hover:scale-105">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" className="h-6 w-6">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m8-8l-8-8-8 8m18 8v3a2 2 0 01-2 2H4a2 2 0 01-2-2v-3" />
+                        </svg>
+                      </div>
+                      <p className="text-sm font-bold text-slate-800">
+                        Drag & Drop imaging file
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1 px-4">
+                        or click to browse local files.
+                      </p>
+                      
+                      <div className="mt-4 flex flex-wrap justify-center gap-1.5 border-t border-slate-100 pt-3">
+                        <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-bold">
+                          {modality === "ct" ? ".nii / .nii.gz" : ".png"}
+                        </span>
+                        <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-bold">
+                          {modality === "ct" ? ".dcm / .zip" : ".jpg / .jpeg"}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Consent Card */}
+              <div className="rounded-xl border border-border/80 bg-slate-50/50 p-3.5 flex items-start gap-3">
                 <input
                   type="checkbox"
                   id="consent"
                   disabled={isProcessing}
                   checked={consentChecked}
                   onChange={(e) => setConsentChecked(e.target.checked)}
-                  className="mt-1 h-4 w-4 shrink-0 rounded border-primary text-primary focus:ring-primary shadow-xs cursor-pointer disabled:opacity-50"
+                  className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-primary-deep focus:ring-primary-deep shadow-xs cursor-pointer disabled:opacity-50"
                 />
-                <label className="text-xs font-medium leading-normal cursor-pointer text-muted-foreground select-none" htmlFor="consent">
-                  I understand this is a research tool and not a medical diagnosis. I have rights to share this file.
+                <label className="text-[11px] font-medium leading-normal cursor-pointer text-slate-500 select-none" htmlFor="consent">
+                  I understand this is a research decision support preview, not a validated medical report. I confirm I possess appropriate permissions to share this scan study.
                 </label>
               </div>
 
-              {/* Action Buttons Row */}
-              <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border/40 pt-4">
-                <p className="text-xs text-muted-foreground font-medium">
-                  Files are processed securely in your session.
-                </p>
+              {/* Action trigger row */}
+              <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-4 mt-2">
+                <span className="text-[10px] text-muted-foreground font-mono font-semibold">
+                  SECURE LOCAL SESSION
+                </span>
+                
                 <div className="flex gap-2">
                   {file && (
                     <button
                       onClick={handleReset}
                       disabled={isProcessing}
-                      className="px-4 py-2 text-xs font-semibold text-muted-foreground border border-border hover:bg-muted bg-background rounded-full transition-all cursor-pointer"
+                      className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 border border-slate-200 hover:bg-slate-50 bg-white rounded-full transition-all cursor-pointer disabled:opacity-50"
                     >
-                      Reset
+                      Clear
                     </button>
                   )}
                   <button
                     onClick={runPredictivePipeline}
                     disabled={!file || !consentChecked || isProcessing}
-                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-xs font-semibold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 rounded-full px-5"
+                    className="inline-flex items-center justify-center gap-2 text-xs font-bold cursor-pointer transition-all disabled:pointer-events-none disabled:opacity-40 bg-gradient-to-r from-primary-deep to-primary text-white shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] h-9.5 rounded-full px-6"
                   >
-                    {isProcessing ? "Analyzing..." : "Analyze"}
+                    {isProcessing ? (
+                      <span className="flex items-center gap-2">
+                        <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Inference Active
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5">
+                        Run Diagnostic Pipeline
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                      </span>
+                    )}
                   </button>
                 </div>
               </div>
 
             </div>
+
+            {/* QUICK SAMPLES SECTION */}
+            <div className="rounded-2xl border border-border/85 bg-white shadow-xs p-5 flex flex-col gap-3">
+              <span className="text-[11px] font-bold text-slate-800 tracking-wider uppercase font-mono flex items-center gap-1.5">
+                <svg className="w-4 h-4 text-primary-deep" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                </svg>
+                Quick Try: Load Sample Studies
+              </span>
+              
+              <div className="grid grid-cols-2 gap-3 mt-1">
+                
+                {/* Sample Normal X-ray */}
+                <button
+                  onClick={() => loadSampleFile("/sample_normal.jpg", "sample_chest_normal.jpg", "xray")}
+                  disabled={isProcessing}
+                  className="flex flex-col items-start rounded-xl border border-border p-3 text-left hover:border-slate-400 hover:bg-slate-50 transition-all cursor-pointer group"
+                >
+                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded mb-2">
+                    NORMAL STUDY
+                  </span>
+                  <span className="text-xs font-semibold text-slate-800">Healthy Chest X-Ray</span>
+                  <span className="text-[9px] text-muted-foreground mt-0.5">Reference radiograph</span>
+                </button>
+
+                {/* Sample Pathology X-ray */}
+                <button
+                  onClick={() => loadSampleFile("/sample_pathology.jpg", "sample_chest_pathology.jpg", "xray")}
+                  disabled={isProcessing}
+                  className="flex flex-col items-start rounded-xl border border-border p-3 text-left hover:border-slate-400 hover:bg-slate-50 transition-all cursor-pointer group"
+                >
+                  <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded mb-2">
+                    PATHOLOGICAL
+                  </span>
+                  <span className="text-xs font-semibold text-slate-800">Abnormal X-Ray</span>
+                  <span className="text-[9px] text-muted-foreground mt-0.5">Effusion / congestion</span>
+                </button>
+
+                {/* Sample Mock CT Scan */}
+                <button
+                  onClick={loadMockCTSample}
+                  disabled={isProcessing}
+                  className="flex flex-col items-start rounded-xl border border-border p-3 text-left hover:border-slate-400 hover:bg-slate-50 transition-all cursor-pointer group"
+                >
+                  <span className="text-[10px] font-bold text-cyan-600 bg-cyan-50 border border-cyan-100 px-1.5 py-0.5 rounded mb-2">
+                    CT STUDY
+                  </span>
+                  <span className="text-xs font-semibold text-slate-800">Demo CT Volume</span>
+                  <span className="text-[9px] text-muted-foreground mt-0.5">NIfTI format (.nii.gz)</span>
+                </button>
+
+                {/* Sample Invalid Scan */}
+                <button
+                  onClick={() => loadSampleFile("/sample_portrait.jpg", "sample_portrait_invalid.jpg", "xray")}
+                  disabled={isProcessing}
+                  className="flex flex-col items-start rounded-xl border border-border p-3 text-left hover:border-slate-400 hover:bg-slate-50 transition-all cursor-pointer group"
+                >
+                  <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded mb-2">
+                    INVALID SCAN
+                  </span>
+                  <span className="text-xs font-semibold text-slate-800">Unrelated Portrait</span>
+                  <span className="text-[9px] text-muted-foreground mt-0.5">Tests image guardrail</span>
+                </button>
+
+              </div>
+            </div>
+
           </div>
 
-          {/* RESULTS PANEL SECTION (spans 7 columns when results exist) */}
-          {hasResults && (
-            <div className="lg:col-span-7 flex flex-col gap-6">
+          {/* RIGHT COLUMN: WORKSTATION INTERACTIVE SCREEN (Spans 7 on lg) */}
+          <div className="lg:col-span-7 flex flex-col gap-6">
+            
+            {/* WORKSTATION HUD DASHBOARD CARD */}
+            <div className="rounded-3xl bg-[#0b0f19] border border-slate-800 text-white shadow-lg overflow-hidden flex flex-col min-h-[580px] p-5 sm:p-6 relative">
               
-              {/* Draft Clinical Findings Card */}
-              <div className="clinical-card overflow-hidden flex flex-col flex-1">
-                <div className="bg-slate-50 border-b border-border/50 py-3 px-5 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider font-mono">
-                    DRAFT CLINICAL FINDINGS
-                  </span>
-                  
+              {/* Star/Grid Watermark backdrop */}
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:32px_32px] opacity-[0.08] pointer-events-none" />
+              
+              {/* Telemetry Status Bar */}
+              <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-6">
+                <div>
+                  <h2 className="text-xs font-bold font-mono tracking-widest text-cyan-400 uppercase">
+                    SYSTEM TELEMETRY
+                  </h2>
+                  <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                    NODE ADDRESS: LUMORA_INFERENCE_LOCAL
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
                   {telemetry.status === "verified" && (
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold flex items-center gap-1">
-                      <span className="h-1 w-1 rounded-full bg-emerald-500"></span>
-                      Verified
+                    <span className="text-[10px] font-mono font-bold px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 shadow-sm shadow-emerald-500/10">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                      SCAN VALIDATED
                     </span>
                   )}
                   {telemetry.status === "rejected" && (
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-200 font-bold flex items-center gap-1">
-                      <span className="h-1 w-1 rounded-full bg-red-500 animate-pulse"></span>
-                      Rejected
+                    <span className="text-[10px] font-mono font-bold px-3 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/30 flex items-center gap-1.5 shadow-sm shadow-red-500/10 animate-pulse">
+                      <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                      SCAN REJECTED
+                    </span>
+                  )}
+                  {telemetry.status === "none" && !isProcessing && (
+                    <span className="text-[10px] font-mono font-bold px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-slate-500"></span>
+                      CONSOLE IDLE
+                    </span>
+                  )}
+                  {isProcessing && (
+                    <span className="text-[10px] font-mono font-bold px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 flex items-center gap-1.5 animate-pulse">
+                      <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+                      PROCESSING DATA...
                     </span>
                   )}
                 </div>
+              </div>
 
-                <div className="bg-white p-5 sm:p-7 flex-1 min-h-[260px] text-xs leading-relaxed overflow-y-auto max-h-[360px] border-b border-border/40">
-                  {telemetry.status === "rejected" && (
-                    <div className="mb-4 p-3.5 rounded-xl bg-red-50 border border-red-100 text-red-800 text-[11px]">
-                      <div className="font-bold mb-1 flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                        Scan Integrity Alert
+              {/* TELEMETRY GAUGES GRID */}
+              <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-3.5 mb-6">
+                
+                {/* Contrast Metric */}
+                <div className="rounded-xl bg-slate-900/60 border border-slate-800 p-3 text-left">
+                  <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                    Contrast SD
+                  </div>
+                  <div className="mt-1 flex items-baseline gap-1.5">
+                    <span className="text-xl font-bold font-mono tracking-tight text-white">
+                      {telemetry.status !== "none" ? telemetry.grayStd.toFixed(1) : "0.0"}
+                    </span>
+                    <span className="text-[9px] text-slate-500 font-mono">
+                      (min {telemetry.contrastThreshold})
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        telemetry.status === "none" ? "w-0" :
+                        telemetry.grayStd >= telemetry.contrastThreshold ? "bg-emerald-500" : "bg-red-500"
+                      }`}
+                      style={{ width: `${telemetry.status === "none" ? 0 : Math.min((telemetry.grayStd / 80) * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Saturation Ratio */}
+                <div className="rounded-xl bg-slate-900/60 border border-slate-800 p-3 text-left">
+                  <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                    Saturation
+                  </div>
+                  <div className="mt-1 flex items-baseline gap-1.5">
+                    <span className="text-xl font-bold font-mono tracking-tight text-white">
+                      {telemetry.status !== "none" ? telemetry.meanSaturation.toFixed(3) : "0.000"}
+                    </span>
+                    <span className="text-[9px] text-slate-500 font-mono">
+                      (max {telemetry.saturationThreshold})
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        telemetry.status === "none" ? "w-0" :
+                        telemetry.meanSaturation <= telemetry.saturationThreshold ? "bg-emerald-500" : "bg-red-500"
+                      }`}
+                      style={{ width: `${telemetry.status === "none" ? 0 : Math.min((telemetry.meanSaturation / 0.5) * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Model Engine */}
+                <div className="rounded-xl bg-slate-900/60 border border-slate-800 p-3 text-left">
+                  <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                    Model Core
+                  </div>
+                  <div className="mt-1.5 text-xs font-bold font-mono text-cyan-400 truncate">
+                    {telemetry.engineUsed}
+                  </div>
+                  <div className="text-[9px] text-slate-500 font-mono mt-1">
+                    VLM Core Layer
+                  </div>
+                </div>
+
+                {/* Latency */}
+                <div className="rounded-xl bg-slate-900/60 border border-slate-800 p-3 text-left">
+                  <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                    Latency
+                  </div>
+                  <div className="mt-1.5 text-xs font-bold font-mono text-cyan-400">
+                    {telemetry.inferenceTime}
+                  </div>
+                  <div className="text-[9px] text-slate-500 font-mono mt-1">
+                    Inference Time
+                  </div>
+                </div>
+
+              </div>
+
+              {/* DYNAMIC SCREEN WORKSPACE CONTENT */}
+              <div className="relative z-10 flex-1 flex flex-col bg-slate-950 border border-slate-800 rounded-2xl p-4 overflow-y-auto">
+                
+                {/* REJECTED GUARDRAIL STATE */}
+                {telemetry.status === "rejected" && (
+                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                    <div className="h-16 w-16 rounded-full bg-red-500/10 border border-red-500/30 text-red-500 flex items-center justify-center mb-4 animate-bounce">
+                      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-base font-bold text-red-400 font-mono uppercase tracking-wider">
+                      Guardrail Rejection Triggered
+                    </h3>
+                    <p className="text-xs text-slate-300 max-w-sm mt-2 font-mono">
+                      {telemetry.saturationMessage}
+                    </p>
+                    <p className="text-[10px] text-red-500/80 max-w-sm mt-3 font-semibold font-mono uppercase bg-red-950/40 border border-red-900/30 py-1.5 px-3 rounded-lg">
+                      [ALERT: UNUSABLE DIAGNOSTIC INPUT VALUE DETECTED]
+                    </p>
+                  </div>
+                )}
+
+                {/* LOADING / STEP PROGRESS STATE */}
+                {isProcessing && !displayedReport && (
+                  <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full p-4">
+                    
+                    <div className="mb-6 flex flex-col items-center">
+                      <div className="relative h-12 w-12 flex items-center justify-center">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-25"></span>
+                        <div className="relative rounded-full h-8 w-8 bg-cyan-500 flex items-center justify-center border border-cyan-400 text-white">
+                          <svg className="animate-spin h-4.5 w-4.5" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                        </div>
                       </div>
-                      <p className="opacity-95">{telemetry.saturationMessage}</p>
+                      <span className="text-xs font-mono font-bold text-cyan-400 mt-4 tracking-widest uppercase">
+                        DECODING SCAN VECTORS
+                      </span>
                     </div>
-                  )}
 
-                  {isProcessing && !displayedReport ? (
-                    <div className="text-slate-400 flex flex-col gap-2 animate-pulse pt-2">
-                      <p className="font-semibold text-slate-500">&gt; Parsing file bytes...</p>
-                      <p>&gt; Ingesting feature vectors into clinical checkpoints...</p>
-                      <p>&gt; Preprocessing and extracting radiological descriptors...</p>
-                      <p>&gt; Transcribing findings vocabulary sets...</p>
-                    </div>
-                  ) : displayedReport ? (
-                    <div className="clinical-report-sheet p-4 sm:p-5 rounded-lg whitespace-pre-wrap font-sans text-slate-700 text-xs border border-border/80 shadow-2xs relative overflow-hidden">
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0">
-                        <span className="text-[28px] font-mono font-black text-primary/5 tracking-[0.2em] uppercase -rotate-12">
-                          SYSTEM DRAFT
+                    {/* Progress Steps Log */}
+                    <div className="rounded-xl bg-slate-900/80 border border-slate-800 p-4 font-mono text-[11px] leading-relaxed flex flex-col gap-3">
+                      
+                      {/* Step 1 */}
+                      <div className="flex items-center justify-between">
+                        <span className={`${processingStep >= 1 ? "text-cyan-400 font-semibold" : "text-slate-600"}`}>
+                          &gt; Ingesting study raw binary array
+                        </span>
+                        <span>
+                          {processingStep > 1 ? "✅" : processingStep === 1 ? "⚡" : "⚙️"}
                         </span>
                       </div>
-                      <div className="relative z-10 font-mono text-[11px] leading-relaxed">
+
+                      {/* Step 2 */}
+                      <div className="flex items-center justify-between">
+                        <span className={`${processingStep >= 2 ? "text-cyan-400 font-semibold" : "text-slate-600"}`}>
+                          &gt; Running VLM guardrail checks
+                        </span>
+                        <span>
+                          {processingStep > 2 ? "✅" : processingStep === 2 ? "⚡" : "⚙️"}
+                        </span>
+                      </div>
+
+                      {/* Step 3 */}
+                      <div className="flex items-center justify-between">
+                        <span className={`${processingStep >= 3 ? "text-cyan-400 font-semibold" : "text-slate-600"}`}>
+                          &gt; Projecting visual grid embeddings
+                        </span>
+                        <span>
+                          {processingStep > 3 ? "✅" : processingStep === 3 ? "⚡" : "⚙️"}
+                        </span>
+                      </div>
+
+                      {/* Step 4 */}
+                      <div className="flex items-center justify-between">
+                        <span className={`${processingStep >= 4 ? "text-cyan-400 font-semibold" : "text-slate-600"}`}>
+                          &gt; Drafting report & translate adapters
+                        </span>
+                        <span>
+                          {processingStep > 4 ? "✅" : processingStep === 4 ? "⚡" : "⚙️"}
+                        </span>
+                      </div>
+
+                    </div>
+                  </div>
+                )}
+
+                {/* IDLE STATE */}
+                {telemetry.status === "none" && !isProcessing && (
+                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-slate-500 font-mono">
+                    <svg className="w-12 h-12 text-slate-700 mb-3 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-xs">
+                      Console awaiting scan study ingestion.
+                    </p>
+                    <p className="text-[10px] text-slate-600 mt-1 max-w-xs">
+                      Select a modality, drop your file, check consent, and run diagnosis to start.
+                    </p>
+                  </div>
+                )}
+
+                {/* SUCCESS RESULTS DASHBOARD SCREEN */}
+                {telemetry.status === "verified" && displayedReport && (
+                  <div className="flex flex-col gap-5 text-left">
+                    
+                    {/* Clinical Radiology Report Sheet */}
+                    <div className="clinical-report-sheet rounded-xl text-slate-800 p-5 font-mono text-[11px] relative overflow-hidden flex flex-col border border-slate-350 shadow-inner">
+                      
+                      {/* Watermarked Hospital Grid backdrop */}
+                      <div className="absolute inset-0 bg-[linear-gradient(to_right,#000_1px,transparent_1px),linear-gradient(to_bottom,#000_1px,transparent_1px)] bg-[size:24px_24px] opacity-[0.02] pointer-events-none" />
+                      
+                      {/* Report Sheet Header */}
+                      <div className="border-b-2 border-slate-800 pb-3 mb-4 flex flex-wrap items-center justify-between gap-3 select-none">
+                        <div>
+                          <div className="text-[13px] font-black tracking-tight text-slate-900">
+                            LUMORA AI HEALTH SYSTEMS
+                          </div>
+                          <div className="text-[9px] text-slate-500 font-sans mt-0.5">
+                            ELECTRONIC CLINICAL RECORD DRAFT // CONFIDENTIAL
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[10px] font-bold text-slate-950 bg-slate-100 border border-slate-300 py-0.5 px-2 rounded-sm">
+                            REF: LMR-{Math.floor(1000 + Math.random() * 9000)}-CX
+                          </div>
+                          <div className="text-[8px] text-slate-500 font-sans mt-1">
+                            DATE: {currentDate || "PENDING"}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Report Core Text */}
+                      <div className="whitespace-pre-wrap leading-relaxed min-h-[140px] text-slate-800 select-text relative z-10">
                         <span className={displayedReport.length < reportText.length ? "clinical-cursor" : ""}>
                           {displayedReport}
                         </span>
-                        
-                        <div className="mt-6 pt-4 border-t border-slate-100 text-[10px] text-slate-400 leading-normal font-sans">
-                          <strong>DISCLAIMER:</strong> This report represents an automated clinical summary drafted by the Lumora AI framework. All findings must be verified by a licensed radiologist before patient filing.
+                      </div>
+
+                      {/* Signature / Validation Block */}
+                      <div className="border-t border-slate-200 mt-5 pt-3 flex flex-wrap items-end justify-between gap-3 select-none text-[8px] text-slate-400 font-sans">
+                        <div className="max-w-xs leading-normal">
+                          <strong>VERIFICATION NOTICE:</strong> This document represents an automated diagnostic draft generated under session checkpoints. Licenced clinical practitioners must corroborate all findings before therapeutic administration.
+                        </div>
+                        <div className="text-right font-mono text-[9px] font-bold text-slate-500">
+                          ISSUED BY: {telemetry.engineUsed.toUpperCase()}<br />
+                          STATUS: SYSTEM_DRAFT
                         </div>
                       </div>
-                    </div>
-                  ) : null}
-                </div>
 
-                {displayedReport && !isProcessing && (
-                  <div className="bg-slate-50 py-3 px-5 flex justify-end">
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(reportText);
-                        alert("Report summary draft copied to clipboard.");
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-border text-slate-600 hover:text-slate-800 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
-                    >
-                      <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                      </svg>
-                      Copy Report Draft
-                    </button>
+                    </div>
+
+                    {/* Copy draft option */}
+                    {!isProcessing && (
+                      <div className="flex justify-end -mt-3">
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(reportText);
+                            alert("Radiology report draft copied to clipboard.");
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-850 text-[10px] font-mono font-bold transition-all cursor-pointer"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                          </svg>
+                          COPY REPORT TEXT
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Pathology Classifier Pills Card */}
+                    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
+                        <span className="text-[10px] font-mono font-bold text-slate-400 tracking-wider uppercase">
+                          Pathology Classifier Outputs
+                        </span>
+                        <span className="text-[9px] font-mono font-bold text-cyan-400 px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-900/50">
+                          Recall_0.15
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {diseases.length > 0 ? (
+                          diseases.map((disease, idx) => {
+                            const isNormal = disease.includes("No acute cardiopulmonary disease");
+                            return (
+                              <span
+                                key={idx}
+                                className={`px-3 py-1 rounded-lg text-xs font-semibold border font-mono flex items-center gap-1.5 ${
+                                  isNormal
+                                    ? "bg-emerald-950/40 text-emerald-400 border-emerald-900/40"
+                                    : "bg-amber-950/40 text-amber-400 border-amber-900/40"
+                                }`}
+                              >
+                                <span className={`h-1.5 w-1.5 rounded-full ${isNormal ? "bg-emerald-400 animate-pulse" : "bg-amber-400 animate-pulse"}`} />
+                                {disease}
+                              </span>
+                            );
+                          })
+                        ) : (
+                          <span className="text-xs text-slate-500 italic">No pathologies classified.</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Patient-Friendly Speech Card */}
+                    {displayedTranslation && (
+                      <div className="rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden flex flex-col">
+                        <div className="bg-slate-900 border-b border-slate-800 py-2.5 px-4 flex items-center justify-between select-none">
+                          <span className="text-[10px] font-mono font-bold text-slate-400 tracking-wider uppercase">
+                            Patient-Friendly translation
+                          </span>
+                          <span className="text-[9px] font-mono font-bold text-cyan-400 px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-900/50">
+                            Layperson Adapter
+                          </span>
+                        </div>
+                        
+                        <div className="p-4 flex flex-col gap-3">
+                          <div className="relative text-xs text-slate-200 leading-relaxed font-sans select-text border-l-2 border-primary-deep pl-3 py-1 bg-slate-950/40 rounded-r-md">
+                            <span className={displayedTranslation.length < translationText.length ? "clinical-cursor" : ""}>
+                              {displayedTranslation}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-end">
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(translationText);
+                                alert("Patient text copied to clipboard.");
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-850 hover:bg-slate-800 text-[9px] font-mono font-bold text-slate-400 hover:text-slate-200 border border-slate-800 transition-all cursor-pointer"
+                            >
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                              </svg>
+                              COPY LAYPERSON DRAFT
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                   </div>
                 )}
+
               </div>
 
-              {/* Disease Classifier Findings Card */}
-              {(displayedReport || isProcessing) && (
-                <div className="clinical-card p-4 sm:p-5 bg-white shadow-2xs rounded-xl border border-border/80">
-                  <h2 className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono border-b border-slate-100 pb-2 mb-3.5 flex items-center justify-between">
-                    <span>Pathology Detections</span>
-                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-primary/10 text-primary-deep font-bold tracking-wide">
-                      ClinicalBERT
-                    </span>
-                  </h2>
-
-                  {isProcessing && !displayedReport ? (
-                    <div className="flex items-center gap-2 text-slate-400 text-xs animate-pulse">
-                      <svg className="w-4 h-4 animate-spin text-primary-deep" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Evaluating clinical report vocabulary...
-                    </div>
-                  ) : diseases.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {diseases.map((disease, idx) => {
-                        const isNormal = disease === "No acute cardiopulmonary disease";
-                        return (
-                          <span
-                            key={idx}
-                            className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 shadow-2xs ${
-                              isNormal
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                : "bg-amber-50 text-amber-800 border-amber-200"
-                            }`}
-                          >
-                            <span className={`h-1.5 w-1.5 rounded-full ${isNormal ? "bg-emerald-500" : "bg-amber-500"}`}></span>
-                            {disease}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-400 italic">No pathologies detected.</p>
-                  )}
-                </div>
-              )}
-
-              {/* Patient-Friendly Translation Card */}
-              {(displayedTranslation || isProcessing) && (
-                <div className="clinical-card overflow-hidden flex flex-col bg-white shadow-2xs rounded-xl border border-border/80">
-                  <div className="bg-slate-50 border-b border-border/50 py-3 px-5 flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-700 tracking-wide uppercase font-mono">
-                      Patient-Friendly Translation
-                    </span>
-                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-primary/10 text-primary-deep font-bold tracking-wide">
-                      T5 Adapter
-                    </span>
-                  </div>
-
-                  <div className="p-4 sm:p-5 text-xs text-slate-700 leading-relaxed">
-                    {isProcessing && !displayedTranslation ? (
-                      <div className="text-slate-400 flex flex-col gap-1.5 animate-pulse">
-                        <p>&gt; Translating medical jargon into layperson terms...</p>
-                      </div>
-                    ) : displayedTranslation ? (
-                      <div>
-                        <p className="font-medium text-slate-700">{displayedTranslation}</p>
-                        <div className="mt-4 pt-3 border-t border-border/40 flex justify-end">
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(translationText);
-                              alert("Patient text copied to clipboard.");
-                            }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-border text-slate-600 hover:text-slate-800 text-[10px] font-semibold shadow-2xs transition-all cursor-pointer"
-                          >
-                            <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                            </svg>
-                            Copy Patient Text
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              )}
-
             </div>
-          )}
+
+          </div>
 
         </div>
+
       </main>
     </div>
   );
