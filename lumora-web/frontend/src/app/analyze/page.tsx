@@ -118,13 +118,13 @@ export default function Analyze() {
 
     typewriterIntervalRef.current = setInterval(() => {
       if (currentIndex < reportText.length) {
-        setDisplayedReport((prev) => prev + reportText.charAt(currentIndex));
-        currentIndex++;
+        setDisplayedReport((prev) => prev + reportText.substring(currentIndex, currentIndex + 12));
+        currentIndex += 12;
       } else {
         if (typewriterIntervalRef.current)
           clearInterval(typewriterIntervalRef.current);
       }
-    }, 6);
+    }, 10);
 
     return () => {
       if (typewriterIntervalRef.current)
@@ -148,13 +148,13 @@ export default function Analyze() {
 
     translationTypewriterRef.current = setInterval(() => {
       if (currentIndex < translationText.length) {
-        setDisplayedTranslation((prev) => prev + translationText.charAt(currentIndex));
-        currentIndex++;
+        setDisplayedTranslation((prev) => prev + translationText.substring(currentIndex, currentIndex + 12));
+        currentIndex += 12;
       } else {
         if (translationTypewriterRef.current)
           clearInterval(translationTypewriterRef.current);
       }
-    }, 6);
+    }, 10);
 
     return () => {
       if (translationTypewriterRef.current)
@@ -281,16 +281,16 @@ export default function Analyze() {
       
       // Animation Stepper
       setProcessingStep(1); // Ingestion
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       
       setProcessingStep(2); // Guardrail
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       
       setProcessingStep(3); // Feature extraction
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       
       setProcessingStep(4); // Formatting
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       
       const endTime = performance.now();
       const elapsedSeconds = ((endTime - startTime) / 1000).toFixed(2);
@@ -382,9 +382,6 @@ export default function Analyze() {
 
       try {
         setProcessingStep(1); // Ingestion
-        
-        // Add artificial delay for interactive feel
-        await new Promise((resolve) => setTimeout(resolve, 300));
         setProcessingStep(2); // Guardrail
         
         const response = await fetch(`${backendUrl}${endpoint}`, {
@@ -393,7 +390,6 @@ export default function Analyze() {
         });
 
         setProcessingStep(3); // Feature processing
-        await new Promise((resolve) => setTimeout(resolve, 300));
         setProcessingStep(4); // Synthesis
 
         const data = await response.json();
