@@ -397,7 +397,7 @@ body {
 """
 
 with gr.Blocks(css=css, title="🫁 Lumora: Multimodal Radiology Assistant") as demo:
-    with gr.Div(elem_classes="header-box"):
+    with gr.Group(elem_classes="header-box"):
         gr.Markdown(
             """
             # 🫁 Lumora: Multimodal Radiology Assistant
