@@ -150,6 +150,49 @@ def is_valid_medical_image(raw_image):
         return False, f"Modality identification error: {exc}"
 
 
+def generate_heuristic_translation(diseases):
+    if not diseases or "No acute cardiopulmonary disease" in diseases:
+        return "No active heart or lung disease was found. Your chest scans appear clear and normal."
+    
+    parts = []
+    mapping = {
+        'Cardiomegaly': "Your heart silhouette appears slightly enlarged.",
+        'Pleural Effusion': "There is signs of fluid accumulation around the lungs (pleural effusion).",
+        'Pulmonary Edema/Vascular Congestion': "There is fluid congestion in your lungs.",
+        'Pneumonia': "There are signs of lung infection (pneumonia).",
+        'Pneumothorax': "There is a collapsed lung or air trapped in the chest cavity (pneumothorax).",
+        'Emphysema/COPD': "There are signs of chronic lung changes like emphysema/COPD.",
+        'Atelectasis': "There is partial lung collapse or airlessness (atelectasis).",
+        'Consolidation': "There is fluid or tissue filling in the air spaces of your lungs (consolidation).",
+        'Pulmonary Nodules': "There are small spots or nodules detected in the lungs.",
+        'Atherosclerosis': "There is hardening of the main arteries (atherosclerosis).",
+        'Spinal Degenerative Changes': "There are wear-and-tear changes in the spine.",
+        'Aortic Dilation': "There is widening of the main body artery (aortic dilation).",
+        'Cholelithiasis': "There are signs of gallstones (cholelithiasis).",
+        'Hepatic Steatosis': "There are signs of fatty liver (hepatic steatosis).",
+        'Hiatal Hernia': "There is a hiatal hernia (part of the stomach pushing up into the chest).",
+        'Lymphadenopathy': "There are enlarged lymph nodes (lymphadenopathy).",
+        'Mild scoliosis': "There is mild curvature of the spine (scoliosis).",
+        'Mosaic Attenuation Pattern': "There is a mosaic pattern of air distribution in the lungs.",
+        'Osteoporosis': "There are signs of bone thinning (osteoporosis).",
+        'Pericardial Effusion': "There is fluid accumulation around the heart (pericardial effusion).",
+        'Possible Aspiration': "There are signs of inhaled foreign material or fluid (aspiration).",
+        'Possible Malignancy/Mass': "There is a mass or spot that requires further evaluation (possible mass/malignancy).",
+        'Pulmonary Artery Enlargement': "There is enlargement of the pulmonary artery.",
+        'Pulmonary Fibrosis/Scarring': "There are signs of lung scarring (fibrosis).",
+        'Rib/Bone Fracture': "There is a rib or bone fracture."
+    }
+    
+    for d in diseases:
+        if d in mapping:
+            parts.append(mapping[d])
+            
+    if not parts:
+        return "Your chest scan shows some findings that require evaluation by a physician."
+        
+    return " ".join(parts)
+
+
 def polish_model_text(text):
     """Conservative grammar cleanup that does not add or remove clinical findings."""
     replacements = {
@@ -284,7 +327,11 @@ def predict_medical_report(input_image):
         t5_enc = t5_tokenizer(input_translation_text, truncation=True, max_length=512, return_tensors="pt").to(device)
         with torch.no_grad():
             gen_ids = t5_model.generate(**t5_enc, max_length=256, num_beams=4)
-        translation = polish_model_text(t5_tokenizer.decode(gen_ids[0], skip_special_tokens=True))
+        raw_decoded = t5_tokenizer.decode(gen_ids[0], skip_special_tokens=True)
+        translation = polish_model_text(raw_decoded)
+
+        if "model mistake" in translation.lower() or "model mistake" in raw_decoded.lower() or "ase he it" in translation.lower() or not translation.strip():
+            translation = generate_heuristic_translation(predicted_diseases)
 
         return compiled_report, predicted_diseases_str, translation
 
