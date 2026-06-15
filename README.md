@@ -81,9 +81,9 @@ Lumora processes medical images through a sequential four-stage pipeline, where 
 | **Label Smoothing** | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
 | **Accumulator Steps** | 1 | 1 | 1 | 4 (effective batch size: 16) | 1 |
 | **Batch Size** | 128 | 8 (run) / 4 (local script) | 4 | 4 | 8 |
-| **Epochs** | 100 | Phase 1: 3, Phase 2: 3 (Total: 6) | Phase 1: 3, Phase 2: 3 (Total: 6) | 5 | 12 |
+| **Epochs** | 10 | Phase 1: 3, Phase 2: 3 (Total: 6) | Phase 1: 3, Phase 2: 3 (Total: 6) | 5 | 12 |
 | **Input Shape / Size** | 224 × 224 (image) | 224 × 224 (image), max 128 tokens | 224 × 224 (image), max 128 tokens | max input 512, target 256 tokens | max 512 tokens |
-| **Training Dataset Size** | 2,640 images (80%) | 64,592 samples | 2,301 samples | 840 samples | 840 samples |
+| **Training Dataset Size** | 2,640 images (80%) | 32,400 samples | 2,301 samples | 840 samples | 840 samples |
 | **Validation/Test Size** | 660 images (20%) | 504 samples (Val) | 106 samples (Val) | 105 (Val) / 105 (Test) | 105 (Val) / 105 (Test) |
 | **Hugging Face Hub URL** | [pranto24/xray_ct_scan_identification_model](https://huggingface.co/pranto24/xray_ct_scan_identification_model) | [nur9211/mimic-vlm-model](https://huggingface.co/nur9211/mimic-vlm-model) | [nur9211/ct-rate-vlm-model](https://huggingface.co/nur9211/ct-rate-vlm-model) | [nur9211/lumora_translation](https://huggingface.co/nur9211/lumora_translation) | [nur9211/lumora_disease_classifier](https://huggingface.co/nur9211/lumora_disease_classifier) |
 
@@ -111,7 +111,7 @@ The core report generation model for **frontal chest X-rays**. Built as a custom
 - **Projector**: A linear layer maps the 1,024-dim feature vector to the 768-dim GPT-2 embedding space
 - **Decoder**: `GPT-2` autoregressively generates radiology reports conditioned on the projected visual embedding
 - **Training**: Two-phase strategy — Phase 1 freezes the encoder and trains only the projector + decoder; Phase 2 fine-tunes the entire network end-to-end at a lower learning rate
-- **Dataset**: Trained on **MIMIC-CXR** (64,592 image-report pairs from the Medical Information Mart for Intensive Care)
+- **Dataset**: Trained on **MIMIC-CXR** (32,400 image-report pairs from the Medical Information Mart for Intensive Care)
 
 <p align="center">
   <img src="figure/xray_vlm_metrics.png" alt="X-Ray VLM Training Loss" width="450" />
