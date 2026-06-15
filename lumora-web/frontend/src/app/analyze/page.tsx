@@ -62,6 +62,17 @@ export default function Analyze() {
     );
   }, []);
 
+  // Load modality from query parameter on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const queryModality = params.get("modality");
+      if (queryModality === "ct" || queryModality === "xray") {
+        setModality(queryModality as Modality);
+      }
+    }
+  }, []);
+
   const invalidMessageForModality = (selectedModality: Modality) => {
     if (selectedModality === "ct") return "It is not a chest/lung CT scan.";
     return "It is not a chest/lung X-ray image.";
@@ -245,8 +256,8 @@ export default function Analyze() {
   const loadMockCTSample = () => {
     handleReset();
     
-    // Create a mock binary volume
-    const content = new TextEncoder().encode("Mock NIfTI CT scan volume binary stream");
+    // Create a mock binary 2D slice
+    const content = new TextEncoder().encode("Mock NIfTI CT scan 2D slice binary stream");
     const sampleFile = new File([content], "sample_ct_pathology.nii.gz", { type: "application/gzip" });
     
     setModality("ct");
@@ -336,7 +347,7 @@ export default function Analyze() {
           // CT mode simulation
           if (isPathologicalCase) {
             setReportText(
-              "PATIENT CLINICAL REPORT\n\nEXAMINATION: Volumetric Thoracic CT Scan\n\nFINDINGS:\nBilateral emphysematous changes are noted. Minimal calcification of the aortic wall (atherosclerosis). Mediastinal lymph nodes are within normal limits. Minimal spinal degenerative osteophytes are seen.\n\nIMPRESSION:\n1. Moderate emphysema/COPD changes.\n2. Mild aortic wall atherosclerosis."
+              "PATIENT CLINICAL REPORT\n\nEXAMINATION: Thoracic CT Scan (2D Slice)\n\nFINDINGS:\nBilateral emphysematous changes are noted. Minimal calcification of the aortic wall (atherosclerosis). Mediastinal lymph nodes are within normal limits. Minimal spinal degenerative osteophytes are seen.\n\nIMPRESSION:\n1. Moderate emphysema/COPD changes.\n2. Mild aortic wall atherosclerosis."
             );
             setDiseases(["Emphysema/COPD", "Atherosclerosis", "Spinal Degenerative Changes"]);
             setTranslationText(
@@ -344,7 +355,7 @@ export default function Analyze() {
             );
           } else {
             setReportText(
-              "PATIENT CLINICAL REPORT\n\nEXAMINATION: Volumetric Thoracic CT Scan\n\nFINDINGS:\nVisualized lung fields are normal without focal consolidations or nodules. Pleural spaces are clear. No aortic dilation. Mediastinal structures are unremarkable.\n\nIMPRESSION:\nUnremarkable CT scan of the chest."
+              "PATIENT CLINICAL REPORT\n\nEXAMINATION: Thoracic CT Scan (2D Slice)\n\nFINDINGS:\nVisualized lung fields are normal without focal consolidations or nodules. Pleural spaces are clear. No aortic dilation. Mediastinal structures are unremarkable.\n\nIMPRESSION:\nUnremarkable CT scan of the chest."
             );
             setDiseases(["No acute cardiopulmonary disease"]);
             setTranslationText(
@@ -567,7 +578,7 @@ export default function Analyze() {
                     <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5A3.375 3.375 0 0010.125 2.25H8.25m0 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                     </svg>
-                    <span className="text-xs">CT Volume</span>
+                    <span className="text-xs">CT Scan (2D)</span>
                   </button>
 
                 </div>
@@ -664,7 +675,7 @@ export default function Analyze() {
                       </div>
                       <p className="text-sm font-semibold text-white truncate max-w-full px-2">{file.name}</p>
                       <p className="text-[10px] text-cyan-400 uppercase tracking-widest font-mono mt-1">
-                        VOLUMETRIC CT SCAN STUDY
+                        2D CT SCAN SLIDE
                       </p>
                       <p className="text-[11px] text-slate-400 mt-2">
                         {(file.size / 1024 / 1024).toFixed(2)} MB
@@ -815,8 +826,8 @@ export default function Analyze() {
                   <span className="text-[10px] font-bold text-cyan-600 bg-cyan-50 border border-cyan-100 px-1.5 py-0.5 rounded mb-2">
                     CT STUDY
                   </span>
-                  <span className="text-xs font-semibold text-slate-800">Demo CT Volume</span>
-                  <span className="text-[9px] text-muted-foreground mt-0.5">NIfTI format (.nii.gz)</span>
+                  <span className="text-xs font-semibold text-slate-800">Demo CT Scan (2D)</span>
+                  <span className="text-[9px] text-muted-foreground mt-0.5">2D slice format (.nii.gz)</span>
                 </button>
 
                 {/* Sample Invalid Scan */}
@@ -841,44 +852,44 @@ export default function Analyze() {
           <div className="lg:col-span-7 flex flex-col gap-6">
             
             {/* WORKSTATION HUD DASHBOARD CARD */}
-            <div className="rounded-3xl bg-[#0b0f19] border border-slate-800 text-white shadow-lg overflow-hidden flex flex-col min-h-[580px] p-5 sm:p-6 relative">
+            <div className="rounded-3xl bg-white border border-border text-foreground shadow-xs overflow-hidden flex flex-col min-h-[580px] p-5 sm:p-6 relative">
               
               {/* Star/Grid Watermark backdrop */}
-              <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:32px_32px] opacity-[0.08] pointer-events-none" />
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(37,99,235,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(37,99,235,0.03)_1px,transparent_1px)] bg-[size:32px_32px] opacity-[0.8] pointer-events-none" />
               
               {/* Telemetry Status Bar */}
-              <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-6">
+              <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-border/50 pb-4 mb-6">
                 <div>
-                  <h2 className="text-xs font-bold font-mono tracking-widest text-cyan-400 uppercase">
+                  <h2 className="text-xs font-bold font-mono tracking-widest text-primary-deep uppercase">
                     SYSTEM TELEMETRY
                   </h2>
-                  <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                  <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
                     NODE ADDRESS: LUMORA_INFERENCE_LOCAL
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
                   {telemetry.status === "verified" && (
-                    <span className="text-[10px] font-mono font-bold px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 shadow-sm shadow-emerald-500/10">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span className="text-[10px] font-mono font-bold px-3 py-1 rounded-full bg-primary/5 text-primary-deep border border-primary/20 flex items-center gap-1.5 shadow-xs">
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary-deep animate-ping"></span>
                       SCAN VALIDATED
                     </span>
                   )}
                   {telemetry.status === "rejected" && (
-                    <span className="text-[10px] font-mono font-bold px-3 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/30 flex items-center gap-1.5 shadow-sm shadow-red-500/10 animate-pulse">
-                      <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                    <span className="text-[10px] font-mono font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-300 flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
                       SCAN REJECTED
                     </span>
                   )}
                   {telemetry.status === "none" && !isProcessing && (
-                    <span className="text-[10px] font-mono font-bold px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-slate-500"></span>
+                    <span className="text-[10px] font-mono font-bold px-3 py-1 rounded-full bg-slate-50 text-slate-400 border border-slate-200 flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-slate-300"></span>
                       CONSOLE IDLE
                     </span>
                   )}
                   {isProcessing && (
-                    <span className="text-[10px] font-mono font-bold px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 flex items-center gap-1.5 animate-pulse">
-                      <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+                    <span className="text-[10px] font-mono font-bold px-3 py-1 rounded-full bg-primary/5 text-primary-deep border border-primary/20 flex items-center gap-1.5 animate-pulse">
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary-deep animate-ping"></span>
                       PROCESSING DATA...
                     </span>
                   )}
@@ -889,23 +900,22 @@ export default function Analyze() {
               <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-3.5 mb-6">
                 
                 {/* Contrast Metric */}
-                <div className="rounded-xl bg-slate-900/60 border border-slate-800 p-3 text-left">
-                  <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                <div className="rounded-xl bg-surface border border-border/80 p-3 text-left">
+                  <div className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-wider">
                     Contrast SD
                   </div>
                   <div className="mt-1 flex items-baseline gap-1.5">
-                    <span className="text-xl font-bold font-mono tracking-tight text-white">
+                    <span className="text-xl font-bold font-mono tracking-tight text-foreground">
                       {telemetry.status !== "none" ? telemetry.grayStd.toFixed(1) : "0.0"}
                     </span>
-                    <span className="text-[9px] text-slate-500 font-mono">
+                    <span className="text-[9px] text-slate-400 font-mono">
                       (min {telemetry.contrastThreshold})
                     </span>
                   </div>
-                  <div className="mt-2 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                  <div className="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                     <div 
                       className={`h-full rounded-full transition-all duration-500 ${
-                        telemetry.status === "none" ? "w-0" :
-                        telemetry.grayStd >= telemetry.contrastThreshold ? "bg-emerald-500" : "bg-red-500"
+                        telemetry.status === "none" ? "w-0" : "bg-primary-deep"
                       }`}
                       style={{ width: `${telemetry.status === "none" ? 0 : Math.min((telemetry.grayStd / 80) * 100, 100)}%` }}
                     />
@@ -913,23 +923,22 @@ export default function Analyze() {
                 </div>
 
                 {/* Saturation Ratio */}
-                <div className="rounded-xl bg-slate-900/60 border border-slate-800 p-3 text-left">
-                  <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                <div className="rounded-xl bg-surface border border-border/80 p-3 text-left">
+                  <div className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-wider">
                     Saturation
                   </div>
                   <div className="mt-1 flex items-baseline gap-1.5">
-                    <span className="text-xl font-bold font-mono tracking-tight text-white">
+                    <span className="text-xl font-bold font-mono tracking-tight text-foreground">
                       {telemetry.status !== "none" ? telemetry.meanSaturation.toFixed(3) : "0.000"}
                     </span>
-                    <span className="text-[9px] text-slate-500 font-mono">
+                    <span className="text-[9px] text-slate-400 font-mono">
                       (max {telemetry.saturationThreshold})
                     </span>
                   </div>
-                  <div className="mt-2 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                  <div className="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                     <div 
                       className={`h-full rounded-full transition-all duration-500 ${
-                        telemetry.status === "none" ? "w-0" :
-                        telemetry.meanSaturation <= telemetry.saturationThreshold ? "bg-emerald-500" : "bg-red-500"
+                        telemetry.status === "none" ? "w-0" : "bg-primary-deep"
                       }`}
                       style={{ width: `${telemetry.status === "none" ? 0 : Math.min((telemetry.meanSaturation / 0.5) * 100, 100)}%` }}
                     />
@@ -937,27 +946,27 @@ export default function Analyze() {
                 </div>
 
                 {/* Model Engine */}
-                <div className="rounded-xl bg-slate-900/60 border border-slate-800 p-3 text-left">
-                  <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                <div className="rounded-xl bg-surface border border-border/80 p-3 text-left">
+                  <div className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-wider">
                     Model Core
                   </div>
-                  <div className="mt-1.5 text-xs font-bold font-mono text-cyan-400 truncate">
+                  <div className="mt-1.5 text-xs font-bold font-mono text-primary-deep truncate">
                     {telemetry.engineUsed}
                   </div>
-                  <div className="text-[9px] text-slate-500 font-mono mt-1">
+                  <div className="text-[9px] text-slate-400 font-mono mt-1">
                     VLM Core Layer
                   </div>
                 </div>
 
                 {/* Latency */}
-                <div className="rounded-xl bg-slate-900/60 border border-slate-800 p-3 text-left">
-                  <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                <div className="rounded-xl bg-surface border border-border/80 p-3 text-left">
+                  <div className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-wider">
                     Latency
                   </div>
-                  <div className="mt-1.5 text-xs font-bold font-mono text-cyan-400">
+                  <div className="mt-1.5 text-xs font-bold font-mono text-primary-deep">
                     {telemetry.inferenceTime}
                   </div>
-                  <div className="text-[9px] text-slate-500 font-mono mt-1">
+                  <div className="text-[9px] text-slate-400 font-mono mt-1">
                     Inference Time
                   </div>
                 </div>
@@ -965,23 +974,23 @@ export default function Analyze() {
               </div>
 
               {/* DYNAMIC SCREEN WORKSPACE CONTENT */}
-              <div className="relative z-10 flex-1 flex flex-col bg-slate-950 border border-slate-800 rounded-2xl p-4 overflow-y-auto">
+              <div className="relative z-10 flex-1 flex flex-col bg-surface border border-border/70 rounded-2xl p-4 overflow-y-auto">
                 
                 {/* REJECTED GUARDRAIL STATE */}
                 {telemetry.status === "rejected" && (
                   <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-                    <div className="h-16 w-16 rounded-full bg-red-500/10 border border-red-500/30 text-red-500 flex items-center justify-center mb-4 animate-bounce">
+                    <div className="h-16 w-16 rounded-full bg-primary/5 border border-primary/20 text-primary-deep flex items-center justify-center mb-4 animate-bounce">
                       <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                       </svg>
                     </div>
-                    <h3 className="text-base font-bold text-red-400 font-mono uppercase tracking-wider">
+                    <h3 className="text-base font-bold text-primary-deep font-mono uppercase tracking-wider">
                       Guardrail Rejection Triggered
                     </h3>
-                    <p className="text-xs text-slate-300 max-w-sm mt-2 font-mono">
+                    <p className="text-xs text-slate-600 max-w-sm mt-2 font-mono">
                       {telemetry.saturationMessage}
                     </p>
-                    <p className="text-[10px] text-red-500/80 max-w-sm mt-3 font-semibold font-mono uppercase bg-red-950/40 border border-red-900/30 py-1.5 px-3 rounded-lg">
+                    <p className="text-[10px] text-primary-deep/90 max-w-sm mt-3 font-semibold font-mono uppercase bg-primary/5 border border-primary/10 py-1.5 px-3 rounded-lg">
                       [ALERT: UNUSABLE DIAGNOSTIC INPUT VALUE DETECTED]
                     </p>
                   </div>
@@ -993,25 +1002,25 @@ export default function Analyze() {
                     
                     <div className="mb-6 flex flex-col items-center">
                       <div className="relative h-12 w-12 flex items-center justify-center">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-25"></span>
-                        <div className="relative rounded-full h-8 w-8 bg-cyan-500 flex items-center justify-center border border-cyan-400 text-white">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/30 opacity-25"></span>
+                        <div className="relative rounded-full h-8 w-8 bg-primary flex items-center justify-center border border-primary/30 text-white">
                           <svg className="animate-spin h-4.5 w-4.5" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
                         </div>
                       </div>
-                      <span className="text-xs font-mono font-bold text-cyan-400 mt-4 tracking-widest uppercase">
+                      <span className="text-xs font-mono font-bold text-primary-deep mt-4 tracking-widest uppercase">
                         DECODING SCAN VECTORS
                       </span>
                     </div>
 
                     {/* Progress Steps Log */}
-                    <div className="rounded-xl bg-slate-900/80 border border-slate-800 p-4 font-mono text-[11px] leading-relaxed flex flex-col gap-3">
+                    <div className="rounded-xl bg-white border border-border/80 p-4 font-mono text-[11px] leading-relaxed flex flex-col gap-3">
                       
                       {/* Step 1 */}
                       <div className="flex items-center justify-between">
-                        <span className={`${processingStep >= 1 ? "text-cyan-400 font-semibold" : "text-slate-600"}`}>
+                        <span className={`${processingStep >= 1 ? "text-primary-deep font-semibold" : "text-slate-400"}`}>
                           &gt; Ingesting study raw binary array
                         </span>
                         <span>
@@ -1021,7 +1030,7 @@ export default function Analyze() {
 
                       {/* Step 2 */}
                       <div className="flex items-center justify-between">
-                        <span className={`${processingStep >= 2 ? "text-cyan-400 font-semibold" : "text-slate-600"}`}>
+                        <span className={`${processingStep >= 2 ? "text-primary-deep font-semibold" : "text-slate-400"}`}>
                           &gt; Running VLM guardrail checks
                         </span>
                         <span>
@@ -1031,7 +1040,7 @@ export default function Analyze() {
 
                       {/* Step 3 */}
                       <div className="flex items-center justify-between">
-                        <span className={`${processingStep >= 3 ? "text-cyan-400 font-semibold" : "text-slate-600"}`}>
+                        <span className={`${processingStep >= 3 ? "text-primary-deep font-semibold" : "text-slate-400"}`}>
                           &gt; Projecting visual grid embeddings
                         </span>
                         <span>
@@ -1041,7 +1050,7 @@ export default function Analyze() {
 
                       {/* Step 4 */}
                       <div className="flex items-center justify-between">
-                        <span className={`${processingStep >= 4 ? "text-cyan-400 font-semibold" : "text-slate-600"}`}>
+                        <span className={`${processingStep >= 4 ? "text-primary-deep font-semibold" : "text-slate-400"}`}>
                           &gt; Drafting report & translate adapters
                         </span>
                         <span>
@@ -1055,14 +1064,14 @@ export default function Analyze() {
 
                 {/* IDLE STATE */}
                 {telemetry.status === "none" && !isProcessing && (
-                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-slate-500 font-mono">
-                    <svg className="w-12 h-12 text-slate-700 mb-3 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-slate-400 font-mono">
+                    <svg className="w-12 h-12 text-slate-300 mb-3 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <p className="text-xs">
                       Console awaiting scan study ingestion.
                     </p>
-                    <p className="text-[10px] text-slate-600 mt-1 max-w-xs">
+                    <p className="text-[10px] text-slate-400 mt-1 max-w-xs">
                       Select a modality, drop your file, check consent, and run diagnosis to start.
                     </p>
                   </div>
@@ -1073,7 +1082,7 @@ export default function Analyze() {
                   <div className="flex flex-col gap-5 text-left">
                     
                     {/* Clinical Radiology Report Sheet */}
-                    <div className="clinical-report-sheet rounded-xl text-slate-800 p-5 font-mono text-[11px] relative overflow-hidden flex flex-col border border-slate-350 shadow-inner">
+                    <div className="clinical-report-sheet rounded-xl text-slate-800 p-5 font-mono text-[11px] relative overflow-hidden flex flex-col border border-border shadow-inner">
                       
                       {/* Watermarked Hospital Grid backdrop */}
                       <div className="absolute inset-0 bg-[linear-gradient(to_right,#000_1px,transparent_1px),linear-gradient(to_bottom,#000_1px,transparent_1px)] bg-[size:24px_24px] opacity-[0.02] pointer-events-none" />
@@ -1126,7 +1135,7 @@ export default function Analyze() {
                             navigator.clipboard.writeText(reportText);
                             alert("Radiology report draft copied to clipboard.");
                           }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-850 text-[10px] font-mono font-bold transition-all cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-border text-slate-700 hover:bg-slate-50 hover:text-slate-900 text-[10px] font-mono font-bold transition-all cursor-pointer shadow-2xs"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
@@ -1137,12 +1146,12 @@ export default function Analyze() {
                     )}
 
                     {/* Pathology Classifier Pills Card */}
-                    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-                      <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
-                        <span className="text-[10px] font-mono font-bold text-slate-400 tracking-wider uppercase">
+                    <div className="rounded-xl border border-border bg-white p-4 shadow-2xs">
+                      <div className="flex items-center justify-between border-b border-border/50 pb-2 mb-3">
+                        <span className="text-[10px] font-mono font-bold text-muted-foreground tracking-wider uppercase">
                           Pathology Classifier Outputs
                         </span>
-                        <span className="text-[9px] font-mono font-bold text-cyan-400 px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-900/50">
+                        <span className="text-[9px] font-mono font-bold text-primary-deep px-1.5 py-0.5 rounded bg-primary/5 border border-primary/15">
                           Recall_0.15
                         </span>
                       </div>
@@ -1150,41 +1159,36 @@ export default function Analyze() {
                       <div className="flex flex-wrap gap-2">
                         {diseases.length > 0 ? (
                           diseases.map((disease, idx) => {
-                            const isNormal = disease.includes("No acute cardiopulmonary disease");
                             return (
                               <span
                                 key={idx}
-                                className={`px-3 py-1 rounded-lg text-xs font-semibold border font-mono flex items-center gap-1.5 ${
-                                  isNormal
-                                    ? "bg-emerald-950/40 text-emerald-400 border-emerald-900/40"
-                                    : "bg-amber-950/40 text-amber-400 border-amber-900/40"
-                                }`}
+                                className="px-3 py-1 rounded-lg text-xs font-semibold border font-mono flex items-center gap-1.5 bg-primary/5 text-primary-deep border-primary/15"
                               >
-                                <span className={`h-1.5 w-1.5 rounded-full ${isNormal ? "bg-emerald-400 animate-pulse" : "bg-amber-400 animate-pulse"}`} />
+                                <span className="h-1.5 w-1.5 rounded-full bg-primary-deep animate-pulse" />
                                 {disease}
                               </span>
                             );
                           })
                         ) : (
-                          <span className="text-xs text-slate-500 italic">No pathologies classified.</span>
+                          <span className="text-xs text-slate-400 italic">No pathologies classified.</span>
                         )}
                       </div>
                     </div>
 
                     {/* Patient-Friendly Speech Card */}
                     {displayedTranslation && (
-                      <div className="rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden flex flex-col">
-                        <div className="bg-slate-900 border-b border-slate-800 py-2.5 px-4 flex items-center justify-between select-none">
-                          <span className="text-[10px] font-mono font-bold text-slate-400 tracking-wider uppercase">
+                      <div className="rounded-xl border border-border bg-white overflow-hidden flex flex-col shadow-2xs">
+                        <div className="bg-surface border-b border-border/50 py-2.5 px-4 flex items-center justify-between select-none">
+                          <span className="text-[10px] font-mono font-bold text-muted-foreground tracking-wider uppercase">
                             Patient-Friendly translation
                           </span>
-                          <span className="text-[9px] font-mono font-bold text-cyan-400 px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-900/50">
+                          <span className="text-[9px] font-mono font-bold text-primary-deep px-1.5 py-0.5 rounded bg-primary/5 border border-primary/15">
                             Layperson Adapter
                           </span>
                         </div>
                         
                         <div className="p-4 flex flex-col gap-3">
-                          <div className="relative text-xs text-slate-200 leading-relaxed font-sans select-text border-l-2 border-primary-deep pl-3 py-1 bg-slate-950/40 rounded-r-md">
+                          <div className="relative text-xs text-slate-700 leading-relaxed font-sans select-text border-l-2 border-primary-deep pl-3 py-1 bg-surface/50 rounded-r-md">
                             <span className={displayedTranslation.length < translationText.length ? "clinical-cursor" : ""}>
                               {displayedTranslation}
                             </span>
@@ -1196,7 +1200,7 @@ export default function Analyze() {
                                 navigator.clipboard.writeText(translationText);
                                 alert("Patient text copied to clipboard.");
                               }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-850 hover:bg-slate-800 text-[9px] font-mono font-bold text-slate-400 hover:text-slate-200 border border-slate-800 transition-all cursor-pointer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-[9px] font-mono font-bold text-slate-600 hover:text-slate-800 border border-border transition-all cursor-pointer shadow-2xs"
                             >
                               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />

@@ -57,30 +57,36 @@ export default function Home() {
       <section className="mx-auto max-w-4xl px-6 py-12 w-full">
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           {/* CT Scan Card */}
-          <div className="group rounded-2xl border border-border/60 bg-card p-6 shadow-sm hover:shadow-md hover:border-border transition-all duration-200">
-            <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary-deep">
+          <Link
+            href="/analyze?modality=ct"
+            className="group rounded-2xl border border-border/60 bg-card p-6 shadow-sm hover:shadow-md hover:border-border transition-all duration-200 block hover:scale-[1.01] cursor-pointer"
+          >
+            <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary-deep group-hover:scale-110 transition-transform">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5A3.375 3.375 0 0010.125 2.25H8.25m0 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
               </svg>
             </div>
-            <h3 className="text-base font-semibold text-foreground">CT Scan</h3>
+            <h3 className="text-base font-semibold text-foreground group-hover:text-primary-deep transition-colors">CT Scan</h3>
             <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-              Upload DICOM, NIfTI, or compressed CT studies for volumetric analysis and reporting.
+              Upload DICOM, NIfTI, or compressed CT studies for 2D slice analysis and reporting.
             </p>
-          </div>
+          </Link>
 
           {/* X-Ray Card */}
-          <div className="group rounded-2xl border border-border/60 bg-card p-6 shadow-sm hover:shadow-md hover:border-border transition-all duration-200">
-            <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary-deep">
+          <Link
+            href="/analyze?modality=xray"
+            className="group rounded-2xl border border-border/60 bg-card p-6 shadow-sm hover:shadow-md hover:border-border transition-all duration-200 block hover:scale-[1.01] cursor-pointer"
+          >
+            <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary-deep group-hover:scale-110 transition-transform">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            <h3 className="text-base font-semibold text-foreground">Chest X-Ray</h3>
+            <h3 className="text-base font-semibold text-foreground group-hover:text-primary-deep transition-colors">Chest X-Ray</h3>
             <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
               Drop a single PA or lateral view radiograph and get anatomical findings in seconds.
             </p>
-          </div>
+          </Link>
         </div>
       </section>
 
