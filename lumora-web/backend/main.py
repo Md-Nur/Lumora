@@ -1,5 +1,6 @@
 import io
 import os
+import re
 import tempfile
 from pathlib import Path
 
@@ -16,7 +17,8 @@ from fastapi.responses import JSONResponse
 from huggingface_hub import hf_hub_download
 from PIL import Image
 from pydantic import BaseModel
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
+from transformers import GPT2LMHeadModel, GPT2Tokenizer, AutoTokenizer, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM
+from peft import PeftModel
 from ultralytics import YOLO
 
 XRAY_MODEL_REPO = os.environ.get("XRAY_MODEL_REPO", "nur9211/mimic-vlm-model")
@@ -25,8 +27,12 @@ CT_MODEL_REPO = os.environ.get("CT_MODEL_REPO", "nur9211/ct-rate-vlm-model")
 CT_MODEL_FILENAME = os.environ.get("CT_MODEL_FILENAME", "ct_rate_vlm_phase2_fully_trained.pt")
 IDENT_MODEL_REPO = os.environ.get("IDENT_MODEL_REPO", "pranto24/xray_ct_scan_identification_model")
 IDENT_MODEL_FILENAME = os.environ.get("IDENT_MODEL_FILENAME", "xray_ct_scan_identification_model.pt")
+DISEASE_MODEL_REPO = os.environ.get("DISEASE_MODEL_REPO", "nur9211/lumora_disease_classifier")
+TRANSLATION_MODEL_REPO = os.environ.get("TRANSLATION_MODEL_REPO", "nur9211/lumora_translation")
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent.parent
+INVALID_XRAY_MESSAGE = "It is not a chest/lung X-ray image."
+INVALID_CT_MESSAGE = "It is not a chest/lung CT scan."
 
 
 app = FastAPI(
@@ -145,6 +151,33 @@ ident_model = YOLO(str(ident_checkpoint_path))
 ident_model.to(device)
 print(f"Loaded Modality Identification model from {ident_checkpoint_path}")
 
+print("Loading disease classifier from Hugging Face...")
+disease_tokenizer = AutoTokenizer.from_pretrained(DISEASE_MODEL_REPO)
+disease_model = AutoModelForSequenceClassification.from_pretrained(
+    DISEASE_MODEL_REPO,
+    num_labels=26,
+    problem_type="multi_label_classification"
+).to(device)
+disease_model.eval()
+print("Loaded disease classifier.")
+
+print("Loading translation model from Hugging Face...")
+translation_tokenizer = AutoTokenizer.from_pretrained(TRANSLATION_MODEL_REPO)
+base_t5 = AutoModelForSeq2SeqLM.from_pretrained("t5-small").to(device)
+translation_model = PeftModel.from_pretrained(base_t5, TRANSLATION_MODEL_REPO).to(device)
+translation_model.eval()
+print("Loaded translation model.")
+
+LABEL_VOCAB = [
+    'Aortic Dilation', 'Atelectasis', 'Atherosclerosis', 'Cardiomegaly',
+    'Cholelithiasis', 'Consolidation', 'Emphysema/COPD', 'Hepatic Steatosis',
+    'Hiatal Hernia', 'Lymphadenopathy', 'Mild scoliosis', 'Mosaic Attenuation Pattern',
+    'No acute cardiopulmonary disease', 'Osteoporosis', 'Pericardial Effusion',
+    'Pleural Effusion', 'Pneumonia', 'Pneumothorax', 'Possible Aspiration',
+    'Possible Malignancy/Mass', 'Pulmonary Artery Enlargement', 'Pulmonary Edema/Vascular Congestion',
+    'Pulmonary Fibrosis/Scarring', 'Pulmonary Nodules', 'Rib/Bone Fracture', 'Spinal Degenerative Changes'
+]
+
 ui_transform = transforms.Compose(
     [
         transforms.Resize((224, 224)),
@@ -157,6 +190,8 @@ ui_transform = transforms.Compose(
 class InferenceResponse(BaseModel):
     status: str
     report: str
+    translation: str = ""
+    diseases: list[str] = []
     telemetry: str = "N/A"
     mean_saturation: float = 0.0
     gray_std: float = 0.0
@@ -300,7 +335,56 @@ def generate_report_from_image(report_model: MedicalReportGenerator, input_image
             if next_token_id.item() == tokenizer.eos_token_id:
                 break
 
-    return tokenizer.decode(generated_sequence[0], skip_special_tokens=True).strip()
+    return polish_model_text(tokenizer.decode(generated_sequence[0], skip_special_tokens=True))
+
+
+def polish_model_text(text: str) -> str:
+    """Conservative grammar cleanup that does not add or remove clinical findings."""
+    replacements = {
+        " ,": ",",
+        " .": ".",
+        " ;": ";",
+        " :": ":",
+        "( ": "(",
+        " )": ")",
+        "There is also sign of": "There are also signs of",
+        "there is also sign of": "there are also signs of",
+        "There is sign of": "There are signs of",
+        "there is sign of": "there are signs of",
+        "There is no signs of": "There are no signs of",
+        "there is no signs of": "there are no signs of",
+        "There are no evidence of": "There is no evidence of",
+        "there are no evidence of": "there is no evidence of",
+        "There are no pneumothorax": "There is no pneumothorax",
+        "there are no pneumothorax": "there is no pneumothorax",
+        "There are no pleural effusion": "There is no pleural effusion",
+        "there are no pleural effusion": "there is no pleural effusion",
+        "No focal consolidations": "No focal consolidation",
+        "no focal consolidations": "no focal consolidation",
+        "lung is clear": "lungs are clear",
+        "Lung is clear": "Lungs are clear",
+        "lungs is clear": "lungs are clear",
+        "Lungs is clear": "Lungs are clear",
+    }
+
+    def polish_segment(segment: str) -> str:
+        cleaned = segment.strip()
+        previous = None
+        while previous != cleaned:
+            previous = cleaned
+            cleaned = re.sub(r"[ \t]+", " ", cleaned)
+            for source, target in replacements.items():
+                cleaned = cleaned.replace(source, target)
+            cleaned = re.sub(r"\b(\w+)(\s+\1\b)+", r"\1", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"\s+([,.;:])", r"\1", cleaned)
+            cleaned = re.sub(r"([,.;:])([^\s])", r"\1 \2", cleaned)
+            cleaned = re.sub(r"\s+([)])", r"\1", cleaned)
+            cleaned = re.sub(r"([(])\s+", r"\1", cleaned)
+        sentences = re.split(r"(?<=[.!?])\s+", cleaned)
+        return " ".join(sentence[:1].upper() + sentence[1:] if sentence else sentence for sentence in sentences)
+
+    parts = re.split(r"(\n+)", text.strip())
+    return "".join(part if part.startswith("\n") else polish_segment(part) for part in parts).strip()
 
 
 @app.get("/")
@@ -330,7 +414,7 @@ async def predict_medical_report(file: UploadFile = File(...)):
             status_code=422,
             content={
                 "status": "rejected",
-                "report": f"Verification Fault: {guardrail['reason']}",
+                "report": INVALID_XRAY_MESSAGE,
                 "telemetry": guardrail["reason"],
                 "mean_saturation": guardrail["mean_saturation"],
                 "gray_std": guardrail["gray_std"],
@@ -342,7 +426,7 @@ async def predict_medical_report(file: UploadFile = File(...)):
             status_code=422,
             content={
                 "status": "rejected",
-                "report": f"Verification Fault: Uploaded image was identified as {guardrail['class_name'].replace('_', ' ')} (confidence {guardrail['confidence']:.2%}) instead of X-ray.",
+                "report": INVALID_XRAY_MESSAGE,
                 "telemetry": f"Identified as {guardrail['class_name']} ({guardrail['confidence']:.3f})",
                 "mean_saturation": guardrail["mean_saturation"],
                 "gray_std": guardrail["gray_std"],
@@ -351,9 +435,29 @@ async def predict_medical_report(file: UploadFile = File(...)):
         )
 
     compiled_report = generate_report_from_image(xray_model, input_image) or "No X-ray report text was generated by the model."
+    
+    # Run Disease Classifier
+    enc = disease_tokenizer(compiled_report, truncation=True, max_length=512, return_tensors="pt").to(device)
+    with torch.no_grad():
+        logits = disease_model(**enc).logits
+        probs = torch.sigmoid(logits).squeeze(0).cpu().numpy()
+    raw_diseases = [LABEL_VOCAB[i] for i, p in enumerate(probs) if p > 0.15]
+    negative_label = "No acute cardiopulmonary disease"
+    actual_diseases = [d for d in raw_diseases if d != negative_label]
+    predicted_diseases = actual_diseases if actual_diseases else (raw_diseases if raw_diseases else [negative_label])
+
+    # Run Translation
+    input_translation_text = "translate to patient-friendly: " + compiled_report
+    t5_enc = translation_tokenizer(input_translation_text, truncation=True, max_length=512, return_tensors="pt").to(device)
+    with torch.no_grad():
+        gen_ids = translation_model.generate(**t5_enc, max_length=256, num_beams=4)
+    translation = polish_model_text(translation_tokenizer.decode(gen_ids[0], skip_special_tokens=True))
+
     return InferenceResponse(
         status="success",
         report=compiled_report,
+        translation=translation,
+        diseases=predicted_diseases,
         telemetry="Verified Diagnostic Scan Space",
         mean_saturation=guardrail["mean_saturation"],
         gray_std=guardrail["gray_std"],
@@ -387,7 +491,7 @@ async def predict_ct_report(file: UploadFile = File(...)):
             status_code=422,
             content={
                 "status": "rejected",
-                "report": f"Verification Fault: {guardrail['reason']}",
+                "report": INVALID_CT_MESSAGE,
                 "telemetry": f"Projection pixel std {guardrail['gray_std']:.1f} < 1.0.",
                 "mean_saturation": 0.0,
                 "gray_std": guardrail["gray_std"],
@@ -399,7 +503,7 @@ async def predict_ct_report(file: UploadFile = File(...)):
             status_code=422,
             content={
                 "status": "rejected",
-                "report": f"Verification Fault: Uploaded file was identified as {guardrail['class_name'].replace('_', ' ')} (confidence {guardrail['confidence']:.2%}) instead of CT scan.",
+                "report": INVALID_CT_MESSAGE,
                 "telemetry": f"Identified as {guardrail['class_name']} ({guardrail['confidence']:.3f})",
                 "mean_saturation": 0.0,
                 "gray_std": guardrail["gray_std"],
@@ -408,9 +512,29 @@ async def predict_ct_report(file: UploadFile = File(...)):
         )
 
     compiled_report = generate_report_from_image(ct_model, input_image) or "No CT report text was generated by the model."
+    
+    # Run Disease Classifier
+    enc = disease_tokenizer(compiled_report, truncation=True, max_length=512, return_tensors="pt").to(device)
+    with torch.no_grad():
+        logits = disease_model(**enc).logits
+        probs = torch.sigmoid(logits).squeeze(0).cpu().numpy()
+    raw_diseases = [LABEL_VOCAB[i] for i, p in enumerate(probs) if p > 0.15]
+    negative_label = "No acute cardiopulmonary disease"
+    actual_diseases = [d for d in raw_diseases if d != negative_label]
+    predicted_diseases = actual_diseases if actual_diseases else (raw_diseases if raw_diseases else [negative_label])
+
+    # Run Translation
+    input_translation_text = "translate to patient-friendly: " + compiled_report
+    t5_enc = translation_tokenizer(input_translation_text, truncation=True, max_length=512, return_tensors="pt").to(device)
+    with torch.no_grad():
+        gen_ids = translation_model.generate(**t5_enc, max_length=256, num_beams=4)
+    translation = polish_model_text(translation_tokenizer.decode(gen_ids[0], skip_special_tokens=True))
+
     return InferenceResponse(
         status="success",
         report=compiled_report,
+        translation=translation,
+        diseases=predicted_diseases,
         telemetry=telemetry,
         mean_saturation=0.0,
         gray_std=guardrail["gray_std"],
