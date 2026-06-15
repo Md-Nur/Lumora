@@ -3,13 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const NAV_LINKS = [
-  { href: "/", label: "Home" },
-  { href: "/workspace", label: "Analyze" },
-  { href: "/models", label: "Models" },
-  { href: "/comparison", label: "Comparison" },
-] as const;
+import Image from "next/image";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -17,7 +11,7 @@ export default function Navbar() {
 
   useEffect(() => {
     const onResize = () => {
-      if (window.innerWidth >= 640) setMenuOpen(false);
+      if (window.innerWidth >= 768) setMenuOpen(false);
     };
 
     window.addEventListener("resize", onResize);
@@ -31,77 +25,149 @@ export default function Navbar() {
     };
   }, [menuOpen]);
 
+  const isActive = (href: string) => {
+    if (href === "/") return pathname === "/";
+    return pathname === href || pathname.startsWith(href + "/");
+  };
+
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 shadow-[0_1px_4px_rgba(0,0,0,0.05)] backdrop-blur-md">
-      <div className="mx-auto grid max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-4 px-3 py-3 sm:px-6">
-        <Link href="/" className="flex shrink-0 items-center">
-          <img
+    <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/80 backdrop-blur">
+      <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-6">
+        {/* Logo (enlarged, text removed) */}
+        <Link href="/" className="flex items-center transition-opacity hover:opacity-90">
+          <Image
             src="/logo.png"
             alt="Lumora Logo"
-            className="h-12 w-auto object-contain transition-all hover:brightness-105 sm:h-14"
+            className="h-40 w-40 object-contain"
+            height={200}
+            width={200}
           />
         </Link>
 
-        <nav className="hidden items-center justify-center gap-2 sm:flex">
-          {NAV_LINKS.map(({ href, label }) => {
-            const isActive = pathname === href || (href !== "/" && pathname.startsWith(href));
-
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-                  isActive
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                }`}
-              >
-                {label}
-              </Link>
-            );
-          })}
+        {/* Desktop Navigation Links */}
+        <nav className="hidden items-center gap-8 text-sm md:flex">
+          <Link
+            href="/analyze"
+            className={`transition-colors font-medium ${
+              isActive("/analyze")
+                ? "text-primary-deep font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Analyze
+          </Link>
+          <Link
+            href="/how-it-works"
+            className={`transition-colors font-medium ${
+              isActive("/how-it-works")
+                ? "text-primary-deep font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            How it works
+          </Link>
+          <Link
+            href="/about"
+            className={`transition-colors font-medium ${
+              isActive("/about")
+                ? "text-primary-deep font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            About us
+          </Link>
         </nav>
 
-        <button
-          type="button"
-          aria-label={menuOpen ? "Close menu" : "Open menu"}
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((value) => !value)}
-          className="justify-self-end rounded-lg border border-slate-200 bg-white p-2 text-slate-600 transition-all active:scale-95 sm:hidden"
-        >
-          {menuOpen ? (
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          ) : (
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          )}
-        </button>
+        {/* Action Buttons */}
+        <div className="flex items-center gap-3">
+          <Link
+            href="/login"
+            className="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:inline"
+          >
+            Sign in
+          </Link>
+          <Link
+            href="/analyze"
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-xs font-semibold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed bg-primary text-primary-foreground shadow hover:bg-primary/90 h-8 rounded-full px-4"
+          >
+            Try now
+          </Link>
+
+          {/* Hamburger Menu Toggle (Mobile) */}
+          <button
+            type="button"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((value) => !value)}
+            className="rounded-full border border-border p-2 text-muted-foreground transition-colors hover:bg-muted active:scale-95 md:hidden cursor-pointer"
+          >
+            {menuOpen ? (
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
+          </button>
+        </div>
       </div>
 
+      {/* Mobile Slide-down Menu */}
       {menuOpen && (
-        <div className="border-t border-slate-200 bg-white/98 shadow-lg sm:hidden">
-          <nav className="flex flex-col divide-y divide-slate-100">
-            {NAV_LINKS.map(({ href, label }) => {
-              const isActive = pathname === href || (href !== "/" && pathname.startsWith(href));
-
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  onClick={() => setMenuOpen(false)}
-                  className={`px-5 py-3.5 text-sm font-bold transition-colors ${
-                    isActive
-                      ? "bg-blue-50/70 text-blue-700"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <span className="flex items-center gap-2">{label}</span>
-                </Link>
-              );
-            })}
+        <div className="border-t border-border/60 bg-background/98 shadow-lg md:hidden animate-in fade-in slide-in-from-top-4 duration-200">
+          <nav className="flex flex-col p-4 gap-3">
+            <Link
+              href="/analyze"
+              onClick={() => setMenuOpen(false)}
+              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                isActive("/analyze")
+                  ? "bg-primary/10 text-primary-deep font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              Analyze
+            </Link>
+            <Link
+              href="/how-it-works"
+              onClick={() => setMenuOpen(false)}
+              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                isActive("/how-it-works")
+                  ? "bg-primary/10 text-primary-deep font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              How it works
+            </Link>
+            <Link
+              href="/about"
+              onClick={() => setMenuOpen(false)}
+              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                isActive("/about")
+                  ? "bg-primary/10 text-primary-deep font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              About us
+            </Link>
+            <hr className="border-border/60 my-1" />
+            <div className="flex flex-col gap-2 px-3 pt-2">
+              <Link
+                href="/login"
+                onClick={() => setMenuOpen(false)}
+                className="text-center py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/analyze"
+                onClick={() => setMenuOpen(false)}
+                className="text-center py-2.5 text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-full transition-colors"
+              >
+                Try now
+              </Link>
+            </div>
           </nav>
         </div>
       )}

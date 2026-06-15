@@ -4,22 +4,58 @@
   --font-sans: var(--font-jakarta);
   --font-mono: var(--font-mono);
   
-  /* Logo-Aligned Clinical Color Palette */
-  --brand-primary: #2563eb;       /* Royal Blue (logo text / lung base) */
-  --brand-secondary: #3b82f6;     /* Bright Care Blue (lung gradient) */
-  --brand-accent: #0ea5e9;        /* Soft Electric Cyan (neural network nodes) */
-  --brand-success: #10b981;       /* Safe Clinical Emerald */
-  --brand-warning: #f59e0b;       /* Soft Attention Amber */
-  --brand-danger: #ef4444;        /* Alert Crimson Red */
-  
-  --bg-clinical: #f8fafc;         /* Soft Off-White Hospital Slate */
-  --panel-card: #ffffff;          /* Clean White Card */
-  --panel-border: #e2e8f0;        /* Gentle Border Slate 200 */
+  /* Reference Site OKLCH Color Palette */
+  --background: oklch(100% 0 0);
+  --surface: oklch(98.5% 0.012 240);
+  --foreground: oklch(21% 0.04 250);
+  --card: oklch(100% 0 0);
+  --card-foreground: oklch(21% 0.04 250);
+  --primary: oklch(72% 0.14 240);
+  --primary-foreground: oklch(100% 0 0);
+  --primary-deep: oklch(55% 0.18 255);
+  --secondary: oklch(97% 0.015 240);
+  --secondary-foreground: oklch(30% 0.05 250);
+  --muted: oklch(97% 0.012 240);
+  --muted-foreground: oklch(52% 0.03 250);
+  --accent: oklch(95% 0.03 240);
+  --accent-foreground: oklch(30% 0.07 250);
+  --border: oklch(93% 0.02 240);
+  --input: oklch(93% 0.02 240);
+  --ring: oklch(72% 0.14 240);
+
+  /* Legacy brand variables for backward compatibility */
+  --brand-primary: #2563eb;
+  --brand-secondary: #3b82f6;
+  --brand-accent: #0ea5e9;
+  --brand-success: #10b981;
+  --brand-warning: #f59e0b;
+  --brand-danger: #ef4444;
+  --bg-clinical: #f8fafc;
+  --panel-card: #ffffff;
+  --panel-border: #e2e8f0;
 }
 
-@theme inline {
+@theme {
   --font-sans: var(--font-jakarta);
   --font-mono: var(--font-mono);
+  
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-deep: var(--primary-deep);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 }
 
 /* Custom Clinical UI Classes */

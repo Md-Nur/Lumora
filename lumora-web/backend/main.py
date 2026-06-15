@@ -20,6 +20,8 @@ from pydantic import BaseModel
 from transformers import GPT2LMHeadModel, GPT2Tokenizer, AutoTokenizer, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM
 from peft import PeftModel
 from ultralytics import YOLO
+from pypdf import PdfReader
+import docx
 
 XRAY_MODEL_REPO = os.environ.get("XRAY_MODEL_REPO", "nur9211/mimic-vlm-model")
 XRAY_MODEL_FILENAME = os.environ.get("XRAY_MODEL_FILENAME", "mimic_vlm_phase2_fully_trained.pt")
@@ -539,6 +541,80 @@ async def predict_ct_report(file: UploadFile = File(...)):
         mean_saturation=0.0,
         gray_std=guardrail["gray_std"],
         modality="ct",
+    )
+
+
+def extract_text_from_file_bytes(content: bytes, filename: str) -> str:
+    lower_name = filename.lower()
+    if lower_name.endswith(".pdf"):
+        pdf_file = io.BytesIO(content)
+        reader = PdfReader(pdf_file)
+        text = ""
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
+        return text
+    elif lower_name.endswith(".docx"):
+        docx_file = io.BytesIO(content)
+        doc = docx.Document(docx_file)
+        text = ""
+        for para in doc.paragraphs:
+            text += para.text + "\n"
+        return text
+    else:
+        return content.decode("utf-8", errors="ignore")
+
+
+@app.post("/predict/report", response_model=InferenceResponse)
+async def predict_text_report(file: UploadFile = File(...)):
+    filename = file.filename or ""
+    lower_name = filename.lower()
+    if not (lower_name.endswith(".txt") or lower_name.endswith(".pdf") or lower_name.endswith(".docx")):
+        raise HTTPException(status_code=400, detail="Invalid report format. Supported formats: .txt, .pdf, .docx.")
+    
+    content = await file.read()
+    try:
+        report_text = extract_text_from_file_bytes(content, filename)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Could not read report content: {exc}") from exc
+
+    if not report_text.strip():
+        raise HTTPException(status_code=400, detail="Uploaded report is empty or no text could be extracted.")
+
+    # Run Disease Classifier
+    enc = disease_tokenizer(report_text, truncation=True, max_length=512, return_tensors="pt").to(device)
+    with torch.no_grad():
+        logits = disease_model(**enc).logits
+        probs = torch.sigmoid(logits).squeeze(0).cpu().numpy()
+    raw_diseases = [LABEL_VOCAB[i] for i, p in enumerate(probs) if p > 0.15]
+    negative_label = "No acute cardiopulmonary disease"
+    actual_diseases = [d for d in raw_diseases if d != negative_label]
+    predicted_diseases = actual_diseases if actual_diseases else (raw_diseases if raw_diseases else [negative_label])
+
+    # Run Translation
+    input_translation_text = "translate to patient-friendly: " + report_text
+    t5_enc = translation_tokenizer(input_translation_text, truncation=True, max_length=512, return_tensors="pt").to(device)
+    with torch.no_grad():
+        gen_ids = translation_model.generate(**t5_enc, max_length=256, num_beams=4)
+    translation = polish_model_text(translation_tokenizer.decode(gen_ids[0], skip_special_tokens=True))
+
+    if lower_name.endswith(".pdf"):
+        telemetry = "Clinical PDF report parsed successfully."
+    elif lower_name.endswith(".docx"):
+        telemetry = "Clinical Word document parsed successfully."
+    else:
+        telemetry = "Clinical text report parsed successfully."
+
+    return InferenceResponse(
+        status="success",
+        report=report_text,
+        translation=translation,
+        diseases=predicted_diseases,
+        telemetry=telemetry,
+        mean_saturation=0.0,
+        gray_std=0.0,
+        modality="report",
     )
 
 
