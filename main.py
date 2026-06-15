@@ -236,7 +236,19 @@ def polish_model_text(text):
             cleaned = re.sub(r"\s+([)])", r"\1", cleaned)
             cleaned = re.sub(r"([(])\s+", r"\1", cleaned)
         sentences = re.split(r"(?<=[.!?])\s+", cleaned)
-        return " ".join(sentence[:1].upper() + sentence[1:] if sentence else sentence for sentence in sentences)
+        polished_sentences = []
+        for sentence in sentences:
+            if not sentence:
+                continue
+            s = sentence[:1].upper() + sentence[1:]
+            s = re.sub(
+                r"^I\s+(is|has|shows|appears|demonstrates|looks|suggests|seems|indicates|presents|details|confirms|reveals|discloses|disclosed|revealed|indicated|presented|detailed|confirmed)\b",
+                r"It \1",
+                s,
+                flags=re.IGNORECASE
+            )
+            polished_sentences.append(s)
+        return " ".join(polished_sentences)
 
     parts = re.split(r"(\n+)", text.strip())
     return "".join(part if part.startswith("\n") else polish_segment(part) for part in parts).strip()
