@@ -23,7 +23,7 @@ export default function Analyze() {
   const [isDragActive, setIsDragActive] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [processingStep, setProcessingStep] = useState<number>(0);
-  const [consentChecked, setConsentChecked] = useState<boolean>(false);
+  const [consentChecked, setConsentChecked] = useState<boolean>(true);
   const [backendOnline, setBackendOnline] = useState<
     "checking" | "online" | "offline"
   >("checking");
@@ -479,7 +479,7 @@ export default function Analyze() {
     setTranslationText("");
     setDisplayedTranslation("");
     setDiseases([]);
-    setConsentChecked(false);
+    setConsentChecked(true);
     setProcessingStep(0);
     setTelemetry({
       status: "none",
@@ -722,21 +722,6 @@ export default function Analyze() {
                 </div>
               </div>
 
-              {/* Consent Card */}
-              <div className="rounded-xl border border-border/80 bg-slate-50/50 p-3.5 flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  id="consent"
-                  disabled={isProcessing}
-                  checked={consentChecked}
-                  onChange={(e) => setConsentChecked(e.target.checked)}
-                  className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-primary-deep focus:ring-primary-deep shadow-xs cursor-pointer disabled:opacity-50"
-                />
-                <label className="text-[11px] font-medium leading-normal cursor-pointer text-slate-500 select-none" htmlFor="consent">
-                  I understand this is a research decision support preview, not a validated medical report. I confirm I possess appropriate permissions to share this scan study.
-                </label>
-              </div>
-
               {/* Action trigger row */}
               <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-4 mt-2">
                 <span className="text-[10px] text-muted-foreground font-mono font-semibold">
@@ -755,7 +740,7 @@ export default function Analyze() {
                   )}
                   <button
                     onClick={runPredictivePipeline}
-                    disabled={!file || !consentChecked || isProcessing}
+                    disabled={!file || isProcessing}
                     className="inline-flex items-center justify-center gap-2 text-xs font-bold cursor-pointer transition-all disabled:pointer-events-none disabled:opacity-40 bg-gradient-to-r from-primary-deep to-primary text-white shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] h-9.5 rounded-full px-6"
                   >
                     {isProcessing ? (
