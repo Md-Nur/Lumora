@@ -320,16 +320,18 @@ def predict_medical_report(input_image):
             logits_a = model_a(**enc).logits
             probs_a = torch.sigmoid(logits_a).squeeze(0).cpu().numpy()
         
-        # Multi-label threshold set to 0.15 for high recall
-        raw_diseases = [LABEL_VOCAB[i] for i, p in enumerate(probs_a) if p > 0.15]
+        # Multi-label threshold set to 0.15 for high recall, paired with probabilities
+        disease_probs = [(LABEL_VOCAB[i], float(probs_a[i])) for i in range(len(LABEL_VOCAB)) if probs_a[i] > 0.15]
+        # Sort by confidence descending
+        disease_probs.sort(key=lambda x: x[1], reverse=True)
         
         # Post-processing: resolve mutual-exclusion logical contradictions
         NEGATIVE_LABEL = "No acute cardiopulmonary disease"
-        actual_diseases = [d for d in raw_diseases if d != NEGATIVE_LABEL]
+        actual_diseases = [d for d, p in disease_probs if d != NEGATIVE_LABEL]
         if actual_diseases:
-            predicted_diseases = actual_diseases
+            predicted_diseases = actual_diseases[:5]
         else:
-            predicted_diseases = raw_diseases if raw_diseases else [NEGATIVE_LABEL]
+            predicted_diseases = [NEGATIVE_LABEL]
 
         predicted_diseases_str = ", ".join(predicted_diseases) if predicted_diseases else "None"
 

@@ -496,10 +496,18 @@ async def predict_medical_report(file: UploadFile = File(...)):
     with torch.no_grad():
         logits = disease_model(**enc).logits
         probs = torch.sigmoid(logits).squeeze(0).cpu().numpy()
-    raw_diseases = [LABEL_VOCAB[i] for i, p in enumerate(probs) if p > 0.15]
+    
+    # Filter and pair with probabilities
+    disease_probs = [(LABEL_VOCAB[i], float(probs[i])) for i in range(len(LABEL_VOCAB)) if probs[i] > 0.15]
+    # Sort by confidence descending
+    disease_probs.sort(key=lambda x: x[1], reverse=True)
+    
     negative_label = "No acute cardiopulmonary disease"
-    actual_diseases = [d for d in raw_diseases if d != negative_label]
-    predicted_diseases = actual_diseases if actual_diseases else (raw_diseases if raw_diseases else [negative_label])
+    actual_diseases = [d for d, p in disease_probs if d != negative_label]
+    if actual_diseases:
+        predicted_diseases = actual_diseases[:5]
+    else:
+        predicted_diseases = [negative_label]
 
     # Run Translation
     input_translation_text = "translate to patient-friendly: " + compiled_report
@@ -577,10 +585,18 @@ async def predict_ct_report(file: UploadFile = File(...)):
     with torch.no_grad():
         logits = disease_model(**enc).logits
         probs = torch.sigmoid(logits).squeeze(0).cpu().numpy()
-    raw_diseases = [LABEL_VOCAB[i] for i, p in enumerate(probs) if p > 0.15]
+    
+    # Filter and pair with probabilities
+    disease_probs = [(LABEL_VOCAB[i], float(probs[i])) for i in range(len(LABEL_VOCAB)) if probs[i] > 0.15]
+    # Sort by confidence descending
+    disease_probs.sort(key=lambda x: x[1], reverse=True)
+    
     negative_label = "No acute cardiopulmonary disease"
-    actual_diseases = [d for d in raw_diseases if d != negative_label]
-    predicted_diseases = actual_diseases if actual_diseases else (raw_diseases if raw_diseases else [negative_label])
+    actual_diseases = [d for d, p in disease_probs if d != negative_label]
+    if actual_diseases:
+        predicted_diseases = actual_diseases[:5]
+    else:
+        predicted_diseases = [negative_label]
 
     # Run Translation
     input_translation_text = "translate to patient-friendly: " + compiled_report
