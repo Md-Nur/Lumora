@@ -265,15 +265,7 @@ def is_valid_medical_image(raw_image: Image.Image, min_contrast=8.0) -> dict:
     mean_saturation = float(np.mean(np.where(pixel_max > 1e-6, (pixel_max - pixel_min) / (pixel_max + 1e-6), 0.0)))
     gray_std = float(np.std(np.array(raw_image.convert("L").resize((224, 224))).astype(np.float32)))
 
-    if mean_saturation > 0.15:
-        return {
-            "is_valid": False,
-            "reason": f"Colorful natural image detected (mean saturation {mean_saturation:.3f} > 0.15).",
-            "mean_saturation": mean_saturation,
-            "gray_std": gray_std,
-            "class_name": "others",
-            "confidence": 1.0,
-        }
+    # We no longer reject images based on color saturation, as CT scans may require color.
     if gray_std < min_contrast:
         return {
             "is_valid": False,
@@ -449,6 +441,9 @@ def health_check():
         "device": str(device),
         "xray_model_repo": XRAY_MODEL_REPO,
         "ct_model_repo": CT_MODEL_REPO,
+        "ident_model_repo": IDENT_MODEL_REPO,
+        "disease_model_repo": DISEASE_MODEL_REPO,
+        "translation_model_repo": TRANSLATION_MODEL_REPO,
     }
 
 
@@ -535,22 +530,16 @@ async def predict_medical_report(file: UploadFile = File(...)):
 @app.post("/predict/ct", response_model=InferenceResponse)
 async def predict_ct_report(file: UploadFile = File(...)):
     filename = file.filename or ""
-    lower_name = filename.lower()
-    is_nifti = lower_name.endswith(".nii") or lower_name.endswith(".nii.gz")
-    is_dicom = lower_name.endswith(".dcm")
-    if not (is_nifti or is_dicom):
-        raise HTTPException(status_code=400, detail="Invalid CT asset type. Supported formats: .nii, .nii.gz, .dcm.")
+    extension = filename.split(".")[-1].lower()
+    if extension not in ["jpg", "jpeg", "png"]:
+        raise HTTPException(status_code=400, detail="Invalid CT asset type. Supported formats: JPEG, PNG.")
 
-    file_bytes = await file.read()
-    if not file_bytes:
-        raise HTTPException(status_code=400, detail="Uploaded CT file is empty.")
+    try:
+        input_image = Image.open(io.BytesIO(await file.read()))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Corrupted image stream data.") from exc
 
-    if is_nifti:
-        input_image = nifti_bytes_to_rgb_image(file_bytes)
-        telemetry = "NIfTI CT volume converted to axial/coronal/sagittal projections."
-    else:
-        input_image = dicom_bytes_to_rgb_image(file_bytes)
-        telemetry = "DICOM CT slice converted to grayscale projection."
+    telemetry = "CT image loaded successfully."
 
     guardrail = is_valid_medical_image(input_image, min_contrast=1.0)
     if not guardrail["is_valid"]:

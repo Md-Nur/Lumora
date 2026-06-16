@@ -200,17 +200,8 @@ export default function Analyze() {
   };
 
   const handleFileSelection = (selectedFile: File) => {
-    const ext = getFileExtension(selectedFile.name);
-    
-    // Auto-detect modality from extension
-    let targetModality: Modality = "xray";
-    if (["nii", "nii.gz", "dcm"].includes(ext)) {
-      targetModality = "ct";
-    }
-
-    setModality(targetModality);
     setFile(selectedFile);
-    setPreviewUrl(targetModality === "xray" ? URL.createObjectURL(selectedFile) : null);
+    setPreviewUrl(URL.createObjectURL(selectedFile));
     
     // Reset output panels
     setReportText("");
@@ -224,7 +215,7 @@ export default function Analyze() {
       meanSaturation: 0.0,
       saturationThreshold: 0.15,
       grayStd: 0.0,
-      contrastThreshold: 8.0,
+      contrastThreshold: modality === "ct" ? 1.0 : 8.0,
       engineUsed: "N/A",
       inferenceTime: "N/A",
     });
@@ -244,7 +235,7 @@ export default function Analyze() {
       
       setModality(targetModality);
       setFile(sampleFile);
-      setPreviewUrl(targetModality === "xray" ? url : null);
+      setPreviewUrl(url);
       setConsentChecked(true); // Automatically accept consent for quick sample tries
     } catch (err) {
       console.error("Error loading sample file:", err);
@@ -253,17 +244,24 @@ export default function Analyze() {
     }
   };
 
-  const loadMockCTSample = () => {
+  const loadMockCTSample = async () => {
     handleReset();
-    
-    // Create a mock binary 2D slice
-    const content = new TextEncoder().encode("Mock NIfTI CT scan 2D slice binary stream");
-    const sampleFile = new File([content], "sample_ct_pathology.nii.gz", { type: "application/gzip" });
-    
-    setModality("ct");
-    setFile(sampleFile);
-    setPreviewUrl(null);
-    setConsentChecked(true);
+    setIsProcessing(true);
+    try {
+      const response = await fetch("/sample_pathology.jpg");
+      if (!response.ok) throw new Error("Failed to load mock CT asset");
+      const blob = await response.blob();
+      const sampleFile = new File([blob], "sample_ct_pathology.jpg", { type: "image/jpeg" });
+      
+      setModality("ct");
+      setFile(sampleFile);
+      setPreviewUrl(URL.createObjectURL(sampleFile));
+      setConsentChecked(true);
+    } catch (err) {
+      console.error("Error loading mock CT sample:", err);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleModalityChange = (targetModality: Modality) => {
@@ -605,11 +603,7 @@ export default function Analyze() {
                     type="file"
                     ref={fileInputRef}
                     onChange={handleFileChange}
-                    accept={
-                      modality === "ct"
-                        ? ".nii,.nii.gz,.dcm,.zip"
-                        : ".png,.jpg,.jpeg"
-                    }
+                    accept=".png,.jpg,.jpeg"
                     className="hidden"
                   />
 
@@ -624,7 +618,7 @@ export default function Analyze() {
                       <img
                         src={previewUrl}
                         alt="Radiograph Scan"
-                        className="max-w-full max-h-full object-contain filter contrast-125 brightness-90 grayscale opacity-80"
+                        className="max-w-full max-h-full object-contain filter contrast-125 brightness-90 opacity-80"
                       />
 
                       {/* HUD Overlays */}
@@ -711,10 +705,10 @@ export default function Analyze() {
                       
                       <div className="mt-4 flex flex-wrap justify-center gap-1.5 border-t border-slate-100 pt-3">
                         <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-bold">
-                          {modality === "ct" ? ".nii / .nii.gz" : ".png"}
+                          .png
                         </span>
                         <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-bold">
-                          {modality === "ct" ? ".dcm / .zip" : ".jpg / .jpeg"}
+                          .jpg / .jpeg
                         </span>
                       </div>
                     </div>
@@ -812,7 +806,7 @@ export default function Analyze() {
                     CT STUDY
                   </span>
                   <span className="text-xs font-semibold text-slate-800">Demo CT Scan (2D)</span>
-                  <span className="text-[9px] text-muted-foreground mt-0.5">2D slice format (.nii.gz)</span>
+                  <span className="text-[9px] text-muted-foreground mt-0.5">2D slice image (.jpg)</span>
                 </button>
 
                 {/* Sample Invalid Scan */}
