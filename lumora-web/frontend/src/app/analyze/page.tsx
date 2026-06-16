@@ -248,10 +248,10 @@ export default function Analyze() {
     handleReset();
     setIsProcessing(true);
     try {
-      const response = await fetch("/sample_pathology.jpg");
+      const response = await fetch("/ct_scan/Spinal Degenerative Changes.jpg");
       if (!response.ok) throw new Error("Failed to load mock CT asset");
       const blob = await response.blob();
-      const sampleFile = new File([blob], "sample_ct_pathology.jpg", { type: "image/jpeg" });
+      const sampleFile = new File([blob], "Spinal Degenerative Changes.jpg", { type: "image/jpeg" });
       
       setModality("ct");
       setFile(sampleFile);
@@ -327,14 +327,16 @@ export default function Analyze() {
         const isPathologicalCase =
           file.name.toLowerCase().includes("pathology") ||
           file.name.toLowerCase().includes("abnormal") ||
-          file.name.toLowerCase().includes("effusion");
+          file.name.toLowerCase().includes("effusion") ||
+          file.name.toLowerCase().includes("pneumonia") ||
+          file.name.toLowerCase().includes("degenerative");
 
         setTelemetry({
           status: "verified",
           meanSaturation: 0.02,
           saturationThreshold: 0.15,
           grayStd: isPathologicalCase ? 48.6 : 55.3,
-          contrastThreshold: 8.0,
+          contrastThreshold: modality === "ct" ? 1.0 : 8.0,
           saturationMessage: "Diagnostic study verified. Confirmed monochrome radiograph.",
           contrastMessage: "Contrast levels standard. Clinical structures decoded successfully.",
           engineUsed: modality === "ct" ? "Lumora CT-RATE VLM Assistant" : "Lumora VLM Assistant",
@@ -772,7 +774,7 @@ export default function Analyze() {
                 
                 {/* Sample Normal X-ray */}
                 <button
-                  onClick={() => loadSampleFile("/sample_normal.jpg", "sample_chest_normal.jpg", "xray")}
+                  onClick={() => loadSampleFile("/x_ray/sample_normal.jpg.jpg", "sample_chest_normal.jpg", "xray")}
                   disabled={isProcessing}
                   className="flex flex-col items-start rounded-xl border border-border p-3 text-left hover:border-slate-400 hover:bg-slate-50 transition-all cursor-pointer group"
                 >
@@ -785,7 +787,7 @@ export default function Analyze() {
 
                 {/* Sample Pathology X-ray */}
                 <button
-                  onClick={() => loadSampleFile("/sample_pathology.jpg", "sample_chest_pathology.jpg", "xray")}
+                  onClick={() => loadSampleFile("/x_ray/pneumonia.jpg", "pneumonia.jpg", "xray")}
                   disabled={isProcessing}
                   className="flex flex-col items-start rounded-xl border border-border p-3 text-left hover:border-slate-400 hover:bg-slate-50 transition-all cursor-pointer group"
                 >
@@ -793,7 +795,7 @@ export default function Analyze() {
                     PATHOLOGICAL
                   </span>
                   <span className="text-xs font-semibold text-slate-800">Abnormal X-Ray</span>
-                  <span className="text-[9px] text-muted-foreground mt-0.5">Effusion / congestion</span>
+                  <span className="text-[9px] text-muted-foreground mt-0.5">Pneumonia / infection</span>
                 </button>
 
                 {/* Sample Mock CT Scan */}
