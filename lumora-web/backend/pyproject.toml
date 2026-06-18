@@ -17,4 +17,5 @@ dependencies = [
     "ultralytics>=8.4.62",
     "peft>=0.19.1",
     "accelerate>=1.14.0",
+    "textblob>=0.20.0",
 ]

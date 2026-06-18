@@ -1,14 +1,11 @@
 import io
 import os
-import re
 import tempfile
 from pathlib import Path
 
 import nibabel as nib
 import numpy as np
 import torch
-import torch.nn as nn
-import torchvision.models as models
 import torchvision.transforms as transforms
 import uvicorn
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -17,9 +14,12 @@ from fastapi.responses import JSONResponse
 from huggingface_hub import hf_hub_download
 from PIL import Image
 from pydantic import BaseModel
-from transformers import GPT2LMHeadModel, GPT2Tokenizer, AutoTokenizer, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM
+from transformers import GPT2Tokenizer, AutoTokenizer, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM
 from peft import PeftModel
 from ultralytics import YOLO
+
+from lib.MedicalReportGenerator import MedicalReportGenerator
+from lib.polish_model_text import polish_model_text
 
 XRAY_MODEL_REPO = os.environ.get("XRAY_MODEL_REPO", "nur9211/mimic-vlm-model")
 XRAY_MODEL_FILENAME = os.environ.get("XRAY_MODEL_FILENAME", "mimic_vlm_phase2_fully_trained.pt")
@@ -58,24 +58,6 @@ app.add_middleware(
 )
 
 
-class MedicalReportGenerator(nn.Module):
-    def __init__(self, vocab_size=50257, embed_dim=768):
-        super().__init__()
-        self.encoder = models.densenet121(weights=None)
-        num_ftrs = self.encoder.classifier.in_features
-        self.encoder.classifier = nn.Identity()
-        self.projector = nn.Linear(num_ftrs, embed_dim)
-        self.decoder = GPT2LMHeadModel.from_pretrained("gpt2")
-        self.decoder.resize_token_embeddings(vocab_size)
-
-    def forward(self, images, input_ids, attention_mask):
-        visual_features = self.encoder(images)
-        visual_embeddings = self.projector(visual_features).unsqueeze(1)
-        text_embeddings = self.decoder.transformer.wte(input_ids)
-        inputs_embeds = torch.cat((visual_embeddings, text_embeddings), dim=1)
-        visual_mask = torch.ones((images.size(0), 1), device=images.device)
-        extended_mask = torch.cat((visual_mask, attention_mask), dim=1)
-        return self.decoder(inputs_embeds=inputs_embeds, attention_mask=extended_mask)
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -371,67 +353,6 @@ def generate_heuristic_translation(diseases: list[str]) -> str:
         return "Your chest scan shows some findings that require evaluation by a physician."
         
     return " ".join(parts)
-
-
-def polish_model_text(text: str) -> str:
-    """Conservative grammar cleanup that does not add or remove clinical findings."""
-    replacements = {
-        " ,": ",",
-        " .": ".",
-        " ;": ";",
-        " :": ":",
-        "( ": "(",
-        " )": ")",
-        "There is also sign of": "There are also signs of",
-        "there is also sign of": "there are also signs of",
-        "There is sign of": "There are signs of",
-        "there is sign of": "there are signs of",
-        "There is no signs of": "There are no signs of",
-        "there is no signs of": "there are no signs of",
-        "There are no evidence of": "There is no evidence of",
-        "there are no evidence of": "there is no evidence of",
-        "There are no pneumothorax": "There is no pneumothorax",
-        "there are no pneumothorax": "there is no pneumothorax",
-        "There are no pleural effusion": "There is no pleural effusion",
-        "there are no pleural effusion": "there is no pleural effusion",
-        "No focal consolidations": "No focal consolidation",
-        "no focal consolidations": "no focal consolidation",
-        "lung is clear": "lungs are clear",
-        "Lung is clear": "Lungs are clear",
-        "lungs is clear": "lungs are clear",
-        "Lungs is clear": "Lungs are clear",
-    }
-
-    def polish_segment(segment: str) -> str:
-        cleaned = segment.strip()
-        previous = None
-        while previous != cleaned:
-            previous = cleaned
-            cleaned = re.sub(r"[ \t]+", " ", cleaned)
-            for source, target in replacements.items():
-                cleaned = cleaned.replace(source, target)
-            cleaned = re.sub(r"\b(\w+)(\s+\1\b)+", r"\1", cleaned, flags=re.IGNORECASE)
-            cleaned = re.sub(r"\s+([,.;:])", r"\1", cleaned)
-            cleaned = re.sub(r"([,.;:])([^\s])", r"\1 \2", cleaned)
-            cleaned = re.sub(r"\s+([)])", r"\1", cleaned)
-            cleaned = re.sub(r"([(])\s+", r"\1", cleaned)
-        sentences = re.split(r"(?<=[.!?])\s+", cleaned)
-        polished_sentences = []
-        for sentence in sentences:
-            if not sentence:
-                continue
-            s = sentence[:1].upper() + sentence[1:]
-            s = re.sub(
-                r"^I\s+(is|has|shows|appears|demonstrates|looks|suggests|seems|indicates|presents|details|confirms|reveals|discloses|disclosed|revealed|indicated|presented|detailed|confirmed)\b",
-                r"It \1",
-                s,
-                flags=re.IGNORECASE
-            )
-            polished_sentences.append(s)
-        return " ".join(polished_sentences)
-
-    parts = re.split(r"(\n+)", text.strip())
-    return "".join(part if part.startswith("\n") else polish_segment(part) for part in parts).strip()
 
 
 @app.get("/")
