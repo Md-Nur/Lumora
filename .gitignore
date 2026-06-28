@@ -11,3 +11,5 @@ clinicalbert_disease_classifier/
 disease_classifier_model/
 t5_translation/
 translation_model/
+*.pdf
+*.csv
